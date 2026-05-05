@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股即時監測雷達</title>
+    <title>台股即時強勢雷達 - 終極版</title>
     <style>
         :root {
             --bg: #0d1117;
@@ -14,7 +14,7 @@
             --down: #3fb950;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: #c9d1d9;
             margin: 0;
@@ -40,12 +40,8 @@
             cursor: pointer;
             transition: 0.2s;
         }
-        .btn-scan:hover { background: #2ea043; }
-        .status-bar {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #8b949e;
-        }
+        .btn-scan:hover { background: #2ea043; transform: scale(1.02); }
+        .status-bar { margin-top: 15px; font-size: 0.9rem; color: #8b949e; }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -57,11 +53,13 @@
             border-radius: 10px;
             padding: 18px;
             transition: transform 0.2s;
+            border-left: 5px solid transparent;
         }
         .card:hover { transform: translateY(-3px); border-color: var(--primary); }
-        .stock-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .card.is-up { border-left-color: var(--up); }
+        .card.is-down { border-left-color: var(--down); }
         .symbol { font-size: 1.4rem; font-weight: bold; color: var(--primary); }
-        .name { font-size: 0.9rem; color: #8b949e; }
+        .name { font-size: 0.9rem; color: #8b949e; margin-left: 8px; }
         .price-box { margin: 15px 0; display: flex; align-items: baseline; }
         .price { font-size: 2.2rem; font-weight: 800; }
         .pct { font-size: 1.1rem; margin-left: 10px; font-weight: bold; }
@@ -83,6 +81,7 @@
             display: none;
             text-align: left;
             white-space: pre-wrap;
+            border: 1px solid #444;
         }
     </style>
 </head>
@@ -91,7 +90,7 @@
 <div class="container">
     <div class="header">
         <h1>📊 台股即時雷達</h1>
-        <p>監測市場核心權值與即時強勢標的</p>
+        <p>監測核心權值與產業熱門標的</p>
         <button class="btn-scan" onclick="startScan()">⚡ 刷新即時報價</button>
         <div id="status" class="status-bar">準備就緒</div>
         <div id="debug"></div>
@@ -101,7 +100,7 @@
 </div>
 
 <script>
-    // === 請在此處填入你部署的 Google Script 網址 ===
+    // === 1. 請在此處填入你部署的 Google Script 網址 ===
     const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
 
     async function startScan() {
@@ -111,20 +110,20 @@
 
         results.innerHTML = "";
         debug.style.display = "none";
-        status.innerText = "⏳ 正在請求即時數據...";
+        status.innerText = "⏳ 正在啟動全自動格式解析機制...";
 
         if (myProxy.includes("你的")) {
-            alert("請先修改代碼填入 Google Script 網址");
+            alert("請先修改代碼填入正確的 Google Script URL");
             return;
         }
 
         try {
-            // 精選台股熱門池（權值、AI、重電、海運、散熱）
+            // 精選台股熱門池（權值、AI、重電、航運、散熱、半導體）
             const stocksPool = [
                 "2330.TW","2317.TW","2454.TW","2382.TW","3231.TW",
                 "2308.TW","2303.TW","2603.TW","2609.TW","1513.TW",
                 "1519.TW","3017.TW","3376.TW","2353.TW","2881.TW",
-                "2882.TW","2891.TW","8046.TW","3037.TW","2376.TW"
+                "2409.TW","3481.TW","2618.TW","2376.TW","3037.TW"
             ];
             
             const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${stocksPool.join(',')}`;
@@ -132,49 +131,62 @@
 
             const response = await fetch(finalUrl);
             const text = await response.text();
-
+            
+            // 診斷：是否拿到 HTML 或錯誤
             if (text.includes("<!DOCTYPE html>")) {
-                throw new Error("Google 通道權限設錯，請設為『所有人』並發布新版本");
+                throw new Error("收到 Google 登入頁面，請將 GAS 部署權限設為『所有人(Anyone)』並選新版本發布。");
             }
 
             const data = JSON.parse(text);
-            const list = data.quoteResponse.result;
 
-            if (!list || list.length === 0) {
-                status.innerText = "⚠️ 暫無數據，請確認 Yahoo API 狀態。";
-                return;
+            // === 2. 自動識別 JSON 結構 (兼容所有 Yahoo V7/V8/Screener 變體) ===
+            let list = null;
+            if (data.quoteResponse && data.quoteResponse.result) {
+                list = data.quoteResponse.result;
+            } else if (data.finance && data.finance.result) {
+                list = data.finance.result;
+            } else if (Array.isArray(data.result)) {
+                list = data.result;
+            } else if (data.quoteResponse && Array.isArray(data.quoteResponse)) {
+                list = data.quoteResponse;
             }
 
-            status.innerText = `✅ 更新完成：${new Date().toLocaleTimeString()} (共 ${list.length} 檔)`;
+            if (!list || list.length === 0) {
+                console.error("原始數據:", data);
+                throw new Error("Yahoo 回傳成功但找不到股票清單結構。");
+            }
+
+            status.innerText = `✅ 更新完成：${new Date().toLocaleTimeString()} (偵測到 ${list.length} 檔)`;
             
             list.forEach(s => {
+                const price = s.regularMarketPrice || 0;
                 const change = s.regularMarketChangePercent || 0;
                 const isUp = change >= 0;
                 const color = isUp ? "var(--up)" : "var(--down)";
 
                 const card = document.createElement('div');
-                card.className = "card";
+                card.className = `card ${isUp ? 'is-up' : 'is-down'}`;
                 card.innerHTML = `
                     <div class="stock-header">
-                        <div class="symbol">${s.symbol.split('.')[0]}</div>
-                        <div class="name">${s.shortName || ''}</div>
+                        <div class="symbol">${(s.symbol || "").split('.')[0]}</div>
+                        <div class="name">${s.shortName || '台股'}</div>
                     </div>
                     <div class="price-box" style="color: ${color}">
-                        <div class="price">${(s.regularMarketPrice || 0).toFixed(2)}</div>
+                        <div class="price">${price.toFixed(2)}</div>
                         <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
                     </div>
                     <div class="details">
                         <span>量：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張</span>
-                        <span>昨收：${s.regularMarketPreviousClose || '--'}</span>
+                        <span>昨收：${(s.regularMarketPreviousClose || 0).toFixed(2)}</span>
                     </div>
                 `;
                 results.appendChild(card);
             });
 
         } catch (err) {
-            status.innerText = "❌ 連線失敗";
+            status.innerText = "❌ 掃描程序發生中斷";
             debug.style.display = "block";
-            debug.innerText = "錯誤診斷：\n" + err.message;
+            debug.innerText = "診斷資訊：\n" + err.message + "\n\n建議動作：\n1. 確認 GAS 部署為『Anyone』\n2. 點擊 GAS 右上角『部署』->『管理部署』->『編輯』並選擇『新版本』再發布一次。";
         }
     }
 </script>
