@@ -2,104 +2,76 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股即時強勢雷達 - 穿透封鎖版</title>
+    <title>台股熱門榜單即時雷達</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
-        .header { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 25px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 14px 40px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; border-left: 5px solid transparent; }
-        .is-up { border-left-color: var(--up); }
-        .is-down { border-left-color: var(--down); }
-        .price { font-size: 2.2rem; font-weight: 800; margin: 10px 0; }
-        #debug-box { background: #000; color: #0f0; padding: 15px; font-size: 12px; margin-top: 15px; display: none; text-align: left; border: 1px solid #444; }
+        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .header { background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid var(--border); text-align: center; width: 100%; max-width: 800px; margin-bottom: 25px; }
+        .btn { background: #238636; color: white; border: none; padding: 15px 50px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn:hover { background: #2ea043; transform: scale(1.05); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; border-left: 6px solid #444; }
+        .price { font-size: 2.5rem; font-weight: 900; margin: 10px 0; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>📈 即時熱門台股掃描</h1>
-    <p>使用客戶端穿透技術，直接抓取即時標的</p>
-    <button class="btn-scan" onclick="smartScan()">⚡ 執行動態掃描</button>
-    <div id="status" style="margin-top:15px; color:#8b949e;">準備就緒</div>
-    <div id="debug-box"></div>
+    <h1>🔥 台股成交量排行掃描</h1>
+    <p>自動抓取 Yahoo 奇摩股市當日前 20 名熱門標的</p>
+    <button class="btn" onclick="fetchData()">⚡ 開始掃描熱門榜單</button>
+    <div id="status" style="margin-top:15px; color:#8b949e">等待指令中...</div>
 </div>
 
 <div id="results" class="grid"></div>
 
 <script>
-    // 這次改用更開放的代理服務，繞過 Google Script 被封鎖的 IP
-    const proxy = (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    // ⚠️ 請在此處填入你剛才重新部署的 GAS 網址
+    const gasUrl = "https://script.google.com/macros/s/AKfycbzeCQJslIYaX6ehDhhxJvnvBnf3B69HXovmIXoGz3aCwRWVzkHKQ81KYMyvwFWUT63S/exec";
 
-    async function smartScan() {
+    async function fetchData() {
         const results = document.getElementById('results');
         const status = document.getElementById('status');
-        const debugBox = document.getElementById('debug-box');
+        
+        if(gasUrl.includes("你的")) { alert("請先填入 GAS 網址！"); return; }
         
         results.innerHTML = "";
-        debugBox.innerHTML = "";
-        status.innerText = "⏳ 正在穿透 Yahoo 封鎖層...";
+        status.innerText = "⏳ 正在穿透抓取 Yahoo 熱門榜單數據...";
 
         try {
-            // 第一步：直接抓取 Yahoo 台股熱門榜單頁面內容 (不走 API，走 HTML 抓取)
-            const targetUrl = "https://tw.stock.yahoo.com/rank/volume?e=tse"; 
-            const res = await fetch(proxy(targetUrl));
+            const res = await fetch(gasUrl);
             const data = await res.json();
-            const html = data.contents;
 
-            // 用正規表達式從 HTML 中挖出股票代碼 (找 4 碼數字)
-            const regex = /"symbol":"(\d{4})\.TW"/g;
-            let match;
-            const symbols = new Set();
-            while ((match = regex.exec(html)) !== null) {
-                if (symbols.size < 20) symbols.add(`${match[1]}.TW`);
-            }
+            if (data.error) throw new Error(data.error);
 
-            if (symbols.size === 0) {
-                // 如果正則失敗，手動補入熱門權值作為保底
-                ["2330.TW","2317.TW","2454.TW","2382.TW","3231.TW","2603.TW","1513.TW","3017.TW"].forEach(s => symbols.add(s));
-            }
-
-            const symbolList = Array.from(symbols).join(',');
-            status.innerText = `🔍 偵測到熱門標的：${symbolList}，正在獲取報價...`;
-
-            // 第二步：獲取即時報價 (改用 V8 接口，這對穿透代理更友善)
-            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolList}`;
-            const quoteRes = await fetch(proxy(quoteUrl));
-            const quoteDataRaw = await quoteRes.json();
-            const quoteData = JSON.parse(quoteDataRaw.contents);
-
-            const list = quoteData.quoteResponse.result;
-
+            const list = data.quoteResponse.result;
             list.forEach(s => {
                 const change = s.regularMarketChangePercent || 0;
                 const isUp = change >= 0;
                 const card = document.createElement('div');
-                card.className = `card ${isUp ? 'is-up' : 'is-down'}`;
+                card.className = "card";
+                card.style.borderLeftColor = isUp ? "var(--up)" : "var(--down)";
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between">
-                        <span style="color:var(--primary); font-weight:bold; font-size:1.2rem">${(s.symbol || "").split('.')[0]}</span>
-                        <span style="font-size:0.9rem; color:#8b949e">${s.shortName || ''}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center">
+                        <span style="color:var(--primary); font-weight:bold; font-size:1.3rem">${s.symbol.replace('.TW','')}</span>
+                        <span style="color:#8b949e">${s.shortName || ''}</span>
                     </div>
-                    <div class="price" style="color: ${isUp ? 'var(--up)' : 'var(--down)'}">
+                    <div class="price" style="color:${isUp ? 'var(--up)' : 'var(--down)'}">
                         ${(s.regularMarketPrice || 0).toFixed(2)}
-                        <span style="font-size:1.2rem">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
+                        <span style="font-size:1.2rem; margin-left:10px">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
                     </div>
-                    <div style="font-size:0.85rem; color:#8b949e; border-top:1px solid #333; padding-top:8px">
-                        成交量：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張
+                    <div style="font-size:0.9rem; color:#8b949e; border-top:1px solid #333; padding-top:10px">
+                        成交量：${Math.floor((s.regularMarketVolume || 0) / 1000).toLocaleString()} 張
                     </div>
                 `;
                 results.appendChild(card);
             });
 
-            status.innerText = `✅ 掃描完成！資料時間：${new Date().toLocaleTimeString()}`;
+            status.innerText = `✅ 掃描完成！更新時間：${new Date().toLocaleTimeString()}`;
 
         } catch (err) {
-            status.innerText = "❌ 掃描失敗";
-            debugBox.style.display = "block";
-            debugBox.innerText = "失敗詳情：" + err.message;
+            status.innerText = "❌ 錯誤：" + err.message;
+            console.error(err);
         }
     }
 </script>
