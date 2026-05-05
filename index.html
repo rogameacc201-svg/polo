@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股即時強勢雷達 - 終極版</title>
+    <title>台股即時動態雷達</title>
     <style>
         :root {
             --bg: #0d1117;
@@ -14,7 +14,7 @@
             --down: #3fb950;
         }
         body {
-            font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, system-ui, sans-serif;
             background: var(--bg);
             color: #c9d1d9;
             margin: 0;
@@ -52,10 +52,8 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 18px;
-            transition: transform 0.2s;
             border-left: 5px solid transparent;
         }
-        .card:hover { transform: translateY(-3px); border-color: var(--primary); }
         .card.is-up { border-left-color: var(--up); }
         .card.is-down { border-left-color: var(--down); }
         .symbol { font-size: 1.4rem; font-weight: bold; color: var(--primary); }
@@ -74,7 +72,7 @@
         #debug {
             background: #000;
             color: #0f0;
-            padding: 10px;
+            padding: 15px;
             font-size: 12px;
             border-radius: 6px;
             margin-top: 15px;
@@ -82,6 +80,8 @@
             text-align: left;
             white-space: pre-wrap;
             border: 1px solid #444;
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -89,9 +89,9 @@
 
 <div class="container">
     <div class="header">
-        <h1>📊 台股即時雷達</h1>
-        <p>監測核心權值與產業熱門標的</p>
-        <button class="btn-scan" onclick="startScan()">⚡ 刷新即時報價</button>
+        <h1>🔍 台股即時掃描 (熱門榜單)</h1>
+        <p>系統將自動搜尋目前市場上交易量最活躍的標的</p>
+        <button class="btn-scan" onclick="startScan()">⚡ 掃描即時熱門標的</button>
         <div id="status" class="status-bar">準備就緒</div>
         <div id="debug"></div>
     </div>
@@ -100,8 +100,8 @@
 </div>
 
 <script>
-    // === 1. 請在此處填入你部署的 Google Script 網址 ===
-    const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
+    // ⚠️ 請確保你的 GAS 代碼已經更新為最新的「偽裝瀏覽器」版本，並已重新發布
+    const myProxy = "https://script.google.com/macros/s/AKfycbzomDPhtm28NHi8s4tWhwZJ90p4Gg0XVgyQ4xR1KtiW2satBLblV5peSngnEo6QdakN/exec";
 
     async function startScan() {
         const results = document.getElementById('results');
@@ -110,84 +110,81 @@
 
         results.innerHTML = "";
         debug.style.display = "none";
-        status.innerText = "⏳ 正在啟動全自動格式解析機制...";
-
-        if (myProxy.includes("你的")) {
-            alert("請先修改代碼填入正確的 Google Script URL");
-            return;
-        }
+        status.innerText = "⏳ 正在檢索台股即時排行榜...";
 
         try {
-            // 精選台股熱門池（權值、AI、重電、航運、散熱、半導體）
-            const stocksPool = [
-                "2330.TW","2317.TW","2454.TW","2382.TW","3231.TW",
-                "2308.TW","2303.TW","2603.TW","2609.TW","1513.TW",
-                "1519.TW","3017.TW","3376.TW","2353.TW","2881.TW",
-                "2409.TW","3481.TW","2618.TW","2376.TW","3037.TW"
-            ];
-            
-            const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${stocksPool.join(',')}`;
+            // 這個接口是 Yahoo Finance 專門給台股熱門榜單使用的搜尋接口
+            // count=100 表示抓取前 100 筆熱門股票
+            const target = `https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives_taiwan&count=100`;
             const finalUrl = `${myProxy}?url=${encodeURIComponent(target)}`;
 
             const response = await fetch(finalUrl);
             const text = await response.text();
             
-            // 診斷：是否拿到 HTML 或錯誤
-            if (text.includes("<!DOCTYPE html>")) {
-                throw new Error("收到 Google 登入頁面，請將 GAS 部署權限設為『所有人(Anyone)』並選新版本發布。");
-            }
-
             const data = JSON.parse(text);
 
-            // === 2. 自動識別 JSON 結構 (兼容所有 Yahoo V7/V8/Screener 變體) ===
-            let list = null;
-            if (data.quoteResponse && data.quoteResponse.result) {
-                list = data.quoteResponse.result;
-            } else if (data.finance && data.finance.result) {
-                list = data.finance.result;
-            } else if (Array.isArray(data.result)) {
-                list = data.result;
-            } else if (data.quoteResponse && Array.isArray(data.quoteResponse)) {
-                list = data.quoteResponse;
+            // 結構化解析：Yahoo 排行榜的資料路徑通常在 finance.result[0].quotes
+            let stocks = [];
+            if (data.finance && data.finance.result && data.finance.result[0]) {
+                stocks = data.finance.result[0].quotes || [];
             }
 
-            if (!list || list.length === 0) {
-                console.error("原始數據:", data);
-                throw new Error("Yahoo 回傳成功但找不到股票清單結構。");
+            if (stocks.length === 0) {
+                // 如果榜單失敗，嘗試第二備援接口（成交量排行）
+                status.innerText = "⚠️ 榜單接口無回應，嘗試備援掃描...";
+                return handleBackup(status, results, debug);
             }
 
-            status.innerText = `✅ 更新完成：${new Date().toLocaleTimeString()} (偵測到 ${list.length} 檔)`;
-            
-            list.forEach(s => {
-                const price = s.regularMarketPrice || 0;
-                const change = s.regularMarketChangePercent || 0;
-                const isUp = change >= 0;
-                const color = isUp ? "var(--up)" : "var(--down)";
-
-                const card = document.createElement('div');
-                card.className = `card ${isUp ? 'is-up' : 'is-down'}`;
-                card.innerHTML = `
-                    <div class="stock-header">
-                        <div class="symbol">${(s.symbol || "").split('.')[0]}</div>
-                        <div class="name">${s.shortName || '台股'}</div>
-                    </div>
-                    <div class="price-box" style="color: ${color}">
-                        <div class="price">${price.toFixed(2)}</div>
-                        <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
-                    </div>
-                    <div class="details">
-                        <span>量：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張</span>
-                        <span>昨收：${(s.regularMarketPreviousClose || 0).toFixed(2)}</span>
-                    </div>
-                `;
-                results.appendChild(card);
-            });
+            renderStocks(stocks);
+            status.innerText = `✅ 掃描成功！已自動偵測 ${stocks.length} 檔熱門成交標的`;
 
         } catch (err) {
-            status.innerText = "❌ 掃描程序發生中斷";
+            status.innerText = "❌ 掃描失敗";
             debug.style.display = "block";
-            debug.innerText = "診斷資訊：\n" + err.message + "\n\n建議動作：\n1. 確認 GAS 部署為『Anyone』\n2. 點擊 GAS 右上角『部署』->『管理部署』->『編輯』並選擇『新版本』再發布一次。";
+            debug.innerText = "錯誤日誌：\n" + err.message + "\n\n回傳內容節錄：\n" + (typeof text !== 'undefined' ? text.substring(0, 500) : "無回傳資料");
         }
+    }
+
+    async function handleBackup(status, results, debug) {
+        // 使用更寬鬆的綜合搜尋接口
+        const target = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=all_taiwan_active&count=50";
+        try {
+            const finalUrl = `${myProxy}?url=${encodeURIComponent(target)}`;
+            const response = await fetch(finalUrl);
+            const data = JSON.parse(await response.text());
+            const stocks = data.finance.result[0].quotes || [];
+            renderStocks(stocks);
+            status.innerText = `✅ 備援掃描成功！已抓取 ${stocks.length} 檔標的`;
+        } catch (e) {
+            status.innerText = "❌ 排行榜接口完全失效，Yahoo 目前可能正在限制存取。";
+        }
+    }
+
+    function renderStocks(list) {
+        const results = document.getElementById('results');
+        list.forEach(s => {
+            const price = s.regularMarketPrice || 0;
+            const change = s.regularMarketChangePercent || 0;
+            const isUp = change >= 0;
+
+            const card = document.createElement('div');
+            card.className = `card ${isUp ? 'is-up' : 'is-down'}`;
+            card.innerHTML = `
+                <div class="stock-header">
+                    <div class="symbol">${s.symbol.replace('.TW','').replace('.TWO','')}</div>
+                    <div class="name">${s.shortName || ''}</div>
+                </div>
+                <div class="price-box" style="color: ${isUp ? 'var(--up)' : 'var(--down)'}">
+                    <div class="price">${price.toFixed(2)}</div>
+                    <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
+                </div>
+                <div class="details">
+                    <span>成交：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張</span>
+                    <span>昨收：${(s.regularMarketPreviousClose || 0).toFixed(2)}</span>
+                </div>
+            `;
+            results.appendChild(card);
+        });
     }
 </script>
 
