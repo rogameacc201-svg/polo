@@ -2,118 +2,108 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股即時強勢雷達</title>
+    <title>台股即時監測 - 穩定連線版</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --tw-red: #f85149; --tw-green: #3fb950; --accent: #58a6ff; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; margin: 0; }
+        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
         .container { max-width: 1100px; margin: 0 auto; }
         .header-box { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 16px 40px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-scan:hover { background: #2ea043; transform: scale(1.02); }
-        .status { margin-top: 15px; color: #8b949e; font-size: 0.9rem; }
+        .btn-scan { background: #238636; color: white; border: none; padding: 16px 40px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; transition: 0.3s; }
-        .card:hover { border-color: var(--accent); }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
         .stock-id { color: var(--accent); font-size: 1.5rem; font-weight: bold; }
-        .stock-name { color: #8b949e; font-size: 0.9rem; margin-left: 8px; }
         .price-area { margin: 15px 0; font-size: 2rem; font-weight: bold; }
         .change-tag { font-size: 1rem; padding: 2px 8px; border-radius: 4px; margin-left: 10px; }
         .tag-up { background: rgba(248, 81, 73, 0.15); color: var(--tw-red); }
         .tag-down { background: rgba(63, 185, 80, 0.15); color: var(--tw-green); }
-        .info-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #8b949e; border-top: 1px solid var(--border); pt: 10px; margin-top: 10px; padding-top: 10px;}
+        .status { margin-top: 15px; color: #8b949e; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header-box">
-        <h1>🇹🇼 台股即時熱門標的監測</h1>
-        <p>僅搜尋台灣上市/上櫃市場成交量最活躍的標的</p>
-        <button class="btn-scan" onclick="startScanner()">🚀 開始掃描台股即時榜單</button>
-        <div id="status" class="status">等待指令中...</div>
+        <h1>🇹🇼 台股即時熱門雷達</h1>
+        <p>直接連動台股交易資料庫，獲取即時成交資訊</p>
+        <button class="btn-scan" onclick="startScanner()">🚀 重新載入即時榜單</button>
+        <div id="status" class="status">準備就緒</div>
     </div>
-
     <div id="results" class="grid"></div>
 </div>
 
 <script>
-// !!! 請在此處填入你部署的 Google Script URL !!!
 const myProxy = "https://script.google.com/macros/s/AKfycbyZr1LgjVdnm-jBQXeXg1mwIn3IwnI0L8qo6gsfTlgVFDhMIwdy6pqNKqxs5TUqlOE/exec";
 
 async function startScanner() {
     const results = document.getElementById('results');
     const status = document.getElementById('status');
-    
-    if(myProxy.includes("你的")) {
-        alert("請先填入 Google Script URL");
-        return;
-    }
-
     results.innerHTML = '';
-    status.innerText = "🌐 正在從台灣市場獲取最新成交數據...";
+    status.innerText = "🌐 正在從台股資料庫檢索即時數據...";
 
     try {
-        // 抓取全球熱門榜，但在程式碼中過濾台股
-        const hotUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=100";
+        // 使用特定的篩選器 ID：day_gainers_taiwan 或 most_actives
+        // 這裡嘗試抓取成交量最活耀的標的
+        const hotUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=day_gainers_taiwan&count=50";
+        
         const response = await fetch(`${myProxy}?url=${encodeURIComponent(hotUrl)}`);
         const rawData = await response.json();
         
-        // 【核心邏輯】過濾標的：只留下結尾是 .TW 或 .TWO 的台灣股票
-        const activeStocks = rawData.finance.result[0].quotes.filter(q => 
-            q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO')
-        );
+        const activeStocks = rawData.finance.result[0].quotes;
 
-        if(activeStocks.length === 0) {
-            status.innerText = "⚠️ 目前榜單中暫無熱門台股標的 (可能是非交易時段)。";
-            return;
+        if(!activeStocks || activeStocks.length === 0) {
+            // 如果 day_gainers 沒資料，換一個備用接口（熱門榜）
+            status.innerText = "🔄 切換至備用掃描頻道...";
+            const backupUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=100";
+            const bRes = await fetch(`${myProxy}?url=${encodeURIComponent(backupUrl)}`);
+            const bData = await bRes.json();
+            const filtered = bData.finance.result[0].quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
+            renderStocks(filtered);
+        } else {
+            renderStocks(activeStocks);
         }
 
-        status.innerText = `✅ 成功偵測到 ${activeStocks.length} 檔即時熱門台股！`;
-
-        activeStocks.forEach(stock => {
-            const ticker = stock.symbol.split('.')[0];
-            const name = stock.shortName || "台股標的";
-            const price = stock.regularMarketPrice || 0;
-            const changePercent = stock.regularMarketChangePercent || 0;
-            const isUp = changePercent >= 0;
-
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <div>
-                    <span class="stock-id">${ticker}</span>
-                    <span class="stock-name">${name}</span>
-                </div>
-                <div class="price-area" style="color: ${isUp ? 'var(--tw-red)' : 'var(--tw-green)'}">
-                    ${price.toFixed(2)}
-                    <span class="change-tag ${isUp ? 'tag-up' : 'tag-down'}">
-                        ${isUp ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}%
-                    </span>
-                </div>
-                <div class="info-row">
-                    <span>成交量：${formatVol(stock.regularMarketVolume)}</span>
-                    <span>${stock.symbol.endsWith('.TW') ? '上市' : '上櫃'}</span>
-                </div>
-                <div style="margin-top:15px; display:flex; gap:8px;">
-                    <a href="https://tw.stock.yahoo.com/quote/${stock.symbol}" target="_blank" style="flex:1; text-align:center; padding:6px; background:#30363d; color:#fff; text-decoration:none; border-radius:4px; font-size:0.8rem;">查看報價</a>
-                    <a href="https://www.google.com/search?q=${ticker}+股票+新聞" target="_blank" style="flex:1; text-align:center; padding:6px; background:#30363d; color:#fff; text-decoration:none; border-radius:4px; font-size:0.8rem;">相關新聞</a>
-                </div>
-            `;
-            results.appendChild(card);
-        });
-
     } catch (err) {
-        status.innerText = "❌ 連線失敗。請確認 Google Script 部署權限是否設為「所有人」。";
-        console.error(err);
+        status.innerText = "❌ 連線異常，請確認私人通道部署狀態。";
     }
 }
 
-// 格式化成交量顯示
+function renderStocks(stocks) {
+    const results = document.getElementById('results');
+    const status = document.getElementById('status');
+    
+    if(!stocks || stocks.length === 0) {
+        status.innerText = "⚠️ 暫無數據，請確認此時是否為交易時間。";
+        return;
+    }
+
+    status.innerText = `✅ 成功獲取 ${stocks.length} 檔即時標的。`;
+    
+    stocks.forEach(stock => {
+        const isUp = stock.regularMarketChangePercent >= 0;
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <div>
+                <span class="stock-id">${stock.symbol.split('.')[0]}</span>
+                <span style="color:#8b949e; font-size:0.9rem; margin-left:8px;">${stock.shortName || ''}</span>
+            </div>
+            <div class="price-area" style="color: ${isUp ? 'var(--tw-red)' : 'var(--tw-green)'}">
+                ${(stock.regularMarketPrice || 0).toFixed(2)}
+                <span class="change-tag ${isUp ? 'tag-up' : 'tag-down'}">
+                    ${isUp ? '▲' : '▼'} ${Math.abs(stock.regularMarketChangePercent || 0).toFixed(2)}%
+                </span>
+            </div>
+            <div style="font-size:0.85rem; color:#8b949e;">
+                成交量：${formatVol(stock.regularMarketVolume)}
+            </div>
+        `;
+        results.appendChild(card);
+    });
+}
+
 function formatVol(vol) {
     if (!vol) return "---";
-    if (vol > 1000000) return (vol / 1000000).toFixed(1) + "M";
-    if (vol > 1000) return (vol / 1000).toFixed(1) + "K";
-    return vol;
+    return vol > 10000 ? (vol / 1000).toFixed(0) + " 張" : vol;
 }
 </script>
 </body>
