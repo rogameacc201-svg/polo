@@ -2,76 +2,232 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股熱門榜單即時雷達</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股即時熱門雷達 - 終極穩定版</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; }
-        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .header { background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid var(--border); text-align: center; width: 100%; max-width: 800px; margin-bottom: 25px; }
-        .btn { background: #238636; color: white; border: none; padding: 15px 50px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn:hover { background: #2ea043; transform: scale(1.05); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; border-left: 6px solid #444; }
-        .price { font-size: 2.5rem; font-weight: 900; margin: 10px 0; }
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --primary: #58a6ff;
+            --up: #f85149;
+            --down: #3fb950;
+            --text: #c9d1d9;
+            --gray: #8b949e;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .header {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.8rem; color: #fff; }
+        p { color: var(--gray); margin-bottom: 20px; }
+
+        .btn-scan {
+            background-color: #238636;
+            color: white;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            padding: 14px 40px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-scan:hover {
+            background-color: #2ea043;
+            transform: translateY(-2px);
+        }
+
+        .btn-scan:active { transform: translateY(0); }
+
+        .status-msg {
+            margin-top: 15px;
+            font-size: 0.95rem;
+            color: var(--gray);
+            min-height: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 6px solid #444;
+            transition: transform 0.2s;
+        }
+
+        .card:hover { transform: scale(1.02); }
+
+        .stock-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .symbol {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .name {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+
+        .price-row {
+            display: flex;
+            align-items: baseline;
+            margin: 15px 0;
+        }
+
+        .price {
+            font-size: 2.4rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .change {
+            margin-left: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .meta {
+            font-size: 0.85rem;
+            color: var(--gray);
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 響應式優化 */
+        @media (max-width: 600px) {
+            .header { padding: 20px; }
+            .price { font-size: 2rem; }
+        }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>🔥 台股成交量排行掃描</h1>
-    <p>自動抓取 Yahoo 奇摩股市當日前 20 名熱門標的</p>
-    <button class="btn" onclick="fetchData()">⚡ 開始掃描熱門榜單</button>
-    <div id="status" style="margin-top:15px; color:#8b949e">等待指令中...</div>
+<div class="container">
+    <div class="header">
+        <h1>🔍 台股即時成交量雷達</h1>
+        <p>自動追蹤 Yahoo 奇摩股市當前成交最活躍的標的</p>
+        <button class="btn-scan" onclick="fetchStockData()">⚡ 執行即時掃描</button>
+        <div id="status" class="status-msg">等待指令中...</div>
+    </div>
+
+    <div id="results" class="grid"></div>
 </div>
 
-<div id="results" class="grid"></div>
-
 <script>
-    // ⚠️ 請在此處填入你剛才重新部署的 GAS 網址
-    const gasUrl = "https://script.google.com/macros/s/AKfycbzeCQJslIYaX6ehDhhxJvnvBnf3B69HXovmIXoGz3aCwRWVzkHKQ81KYMyvwFWUT63S/exec";
+    // ⚠️ 請在此處填入你部署好的 GAS 網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwYP-4oR3Rlie3JrHAfInXabyN9uGwVsBW1uLAN6E1Fr6vpakeeJGpH2ClFsu77-fw8/exec";
 
-    async function fetchData() {
-        const results = document.getElementById('results');
-        const status = document.getElementById('status');
-        
-        if(gasUrl.includes("你的")) { alert("請先填入 GAS 網址！"); return; }
-        
-        results.innerHTML = "";
-        status.innerText = "⏳ 正在穿透抓取 Yahoo 熱門榜單數據...";
+    async function fetchStockData() {
+        const resultsContainer = document.getElementById('results');
+        const statusDisplay = document.getElementById('status');
+
+        if (GAS_URL.includes("你的")) {
+            alert("錯誤：請先在 HTML 程式碼中填入你的 GAS 網址！");
+            return;
+        }
+
+        // 初始化狀態
+        resultsContainer.innerHTML = "";
+        statusDisplay.style.color = "var(--gray)";
+        statusDisplay.innerText = "⏳ 正在請求 Yahoo 資料並解析熱門標的...";
 
         try {
-            const res = await fetch(gasUrl);
-            const data = await res.json();
+            const response = await fetch(GAS_URL);
+            
+            if (!response.ok) throw new Error("網路連線異常，請確認 GAS 權限設置。");
+            
+            const data = await response.json();
 
-            if (data.error) throw new Error(data.error);
+            // 檢查 GAS 回傳的結果
+            if (data.error) {
+                throw new Error("伺服器端錯誤: " + data.error);
+            }
 
-            const list = data.quoteResponse.result;
-            list.forEach(s => {
-                const change = s.regularMarketChangePercent || 0;
-                const isUp = change >= 0;
+            const list = data.result;
+
+            if (!list || list.length === 0) {
+                statusDisplay.style.color = var(--up);
+                statusDisplay.innerText = "⚠️ 抓取成功但目前無資料回傳（可能是非交易時段或 Yahoo IP 限制）。";
+                return;
+            }
+
+            // 渲染資料
+            list.forEach(stock => {
+                const price = stock.regularMarketPrice || 0;
+                const changePercent = stock.regularMarketChangePercent || 0;
+                const isUp = changePercent >= 0;
+                const color = isUp ? "var(--up)" : "var(--down)";
+
                 const card = document.createElement('div');
                 card.className = "card";
-                card.style.borderLeftColor = isUp ? "var(--up)" : "var(--down)";
+                card.style.borderLeftColor = color;
+                
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <span style="color:var(--primary); font-weight:bold; font-size:1.3rem">${s.symbol.replace('.TW','')}</span>
-                        <span style="color:#8b949e">${s.shortName || ''}</span>
+                    <div class="stock-info">
+                        <span class="symbol">${stock.symbol.split('.')[0]}</span>
+                        <span class="name">${stock.shortName || '未知名稱'}</span>
                     </div>
-                    <div class="price" style="color:${isUp ? 'var(--up)' : 'var(--down)'}">
-                        ${(s.regularMarketPrice || 0).toFixed(2)}
-                        <span style="font-size:1.2rem; margin-left:10px">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
+                    <div class="price-row" style="color: ${color}">
+                        <div class="price">${price.toFixed(2)}</div>
+                        <div class="change">${isUp ? '▲' : '▼'}${Math.abs(changePercent).toFixed(2)}%</div>
                     </div>
-                    <div style="font-size:0.9rem; color:#8b949e; border-top:1px solid #333; padding-top:10px">
-                        成交量：${Math.floor((s.regularMarketVolume || 0) / 1000).toLocaleString()} 張
+                    <div class="meta">
+                        <span>成交量: ${Math.floor((stock.regularMarketVolume || 0) / 1000).toLocaleString()} 張</span>
+                        <span>昨收: ${(stock.regularMarketPreviousClose || 0).toFixed(2)}</span>
                     </div>
                 `;
-                results.appendChild(card);
+                resultsContainer.appendChild(card);
             });
 
-            status.innerText = `✅ 掃描完成！更新時間：${new Date().toLocaleTimeString()}`;
+            statusDisplay.style.color = "var(--primary)";
+            statusDisplay.innerText = `✅ 掃描成功！已更新 ${list.length} 檔標的 (${new Date().toLocaleTimeString()})`;
 
         } catch (err) {
-            status.innerText = "❌ 錯誤：" + err.message;
             console.error(err);
+            statusDisplay.style.color = "var(--up)";
+            statusDisplay.innerText = "❌ 掃描失敗：" + err.message;
         }
     }
 </script>
