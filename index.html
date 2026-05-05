@@ -2,128 +2,91 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>全自動雷達 - 100% 顯示測試版</title>
+    <title>即時雷達 - 強制顯示版</title>
     <style>
-        :root { --bg: #05070a; --card: #12151c; --primary: #00d2ff; --up: #ff3b30; --down: #34c759; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #e0e0e0; padding: 20px; }
-        .setup-notice { background: #1a1f2b; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #00d2ff; font-size: 0.9rem; text-align: center; }
-        .control-panel { background: var(--card); padding: 30px; border-radius: 16px; text-align: center; border-bottom: 4px solid var(--primary); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .btn-scan { background: var(--primary); color: #000; border: none; padding: 16px 50px; border-radius: 50px; font-weight: bold; cursor: pointer; font-size: 1.2rem; transition: 0.3s; }
-        .btn-scan:hover { transform: scale(1.05); filter: brightness(1.2); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 30px; }
-        .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #2d333b; transition: 0.3s; }
-        .card:hover { border-color: var(--primary); transform: translateY(-5px); }
-        .ticker-row { display: flex; justify-content: space-between; align-items: center; }
-        .ticker { font-size: 1.6rem; font-weight: 900; color: #fff; }
-        .name { font-size: 0.9rem; color: #888; }
-        .price-row { font-size: 2.2rem; font-weight: bold; margin: 15px 0; }
-        .change-percent { font-size: 1.1rem; margin-left: 10px; }
-        .data-box { background: #000; padding: 12px; border-radius: 8px; font-size: 0.85rem; color: #aaa; line-height: 1.6; }
-        .status { margin-top: 15px; color: #666; font-family: monospace; font-size: 0.85rem; }
+        :root { --bg: #05070a; --card: #161b22; --primary: #58a6ff; --up: #f85149; }
+        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
+        .control-panel { background: #0d1117; padding: 30px; border-radius: 12px; text-align: center; border: 1px solid #30363d; }
+        .btn-scan { background: #238636; color: white; border: none; padding: 15px 40px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 25px; }
+        .card { background: #161b22; padding: 15px; border-radius: 8px; border: 1px solid #30363d; position: relative; }
+        .ticker { font-size: 1.4rem; font-weight: bold; color: #58a6ff; }
+        .status { margin-top: 15px; color: #8b949e; font-size: 0.85rem; }
+        .error-log { color: #f85149; font-size: 0.8rem; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="setup-notice">
-    💡 測試模式：目前已關閉所有篩選條件，將 100% 顯示市場成交量排行前 50 檔。
-</div>
-
 <div class="control-panel">
-    <h1>📡 即時熱門股 AI 雷達 (全顯版)</h1>
-    <p>透過 Google 私人通道連線 Yahoo Finance 即時榜單</p>
-    <button class="btn-scan" onclick="startScanner()">⚡ 啟動私人掃描引擎</button>
+    <h1>📡 即時熱門雷達 (強制顯示版)</h1>
+    <p>如果此版本仍無數據，請按 F12 查看主控台錯誤</p>
+    <button class="btn-scan" onclick="startScanner()">⚡ 執行強制掃描</button>
     <div id="status" class="status">等待指令...</div>
+    <div id="debug-info" class="error-log"></div>
 </div>
 
 <div id="results" class="grid"></div>
 
 <script>
-// !!! 請在此處填入你部署的 Google Script URL !!!
+// !!! 請務必填入你的 URL !!!
 const myProxy = "https://script.google.com/macros/s/AKfycbyZr1LgjVdnm-jBQXeXg1mwIn3IwnI0L8qo6gsfTlgVFDhMIwdy6pqNKqxs5TUqlOE/exec";
 
 async function startScanner() {
-    // 檢查網址是否有填
-    if(myProxy.includes("你的")) { 
-        alert("錯誤：請在 HTML 代碼中填入你的 Google Script 部署網址。"); 
-        return; 
-    }
-    
     const results = document.getElementById('results');
     const status = document.getElementById('status');
+    const debug = document.getElementById('debug-info');
+    
     results.innerHTML = '';
-    status.innerText = "🌐 [Step 1] 正在連線至 Google 私人通道...";
+    debug.innerText = '';
+    
+    if(myProxy.includes("你的")) {
+        status.innerText = "❌ 錯誤：你還沒填入 Google Script 網址！";
+        return;
+    }
+
+    status.innerText = "🌐 正在嘗試連線私人通道...";
 
     try {
-        // 抓取 Yahoo 熱門榜單
-        const hotUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=50";
+        // 抓取熱門榜單
+        const hotUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=40";
         const response = await fetch(`${myProxy}?url=${encodeURIComponent(hotUrl)}`);
-        const data = await response.json();
-        const activeStocks = data.finance.result[0].quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
-
-        status.innerText = `✅ 成功獲取 ${activeStocks.length} 檔標的。正在提取即時量價...`;
+        const rawData = await response.json();
+        
+        // 提取股票名單
+        const activeStocks = rawData.finance.result[0].quotes;
+        status.innerText = `✅ 找到 ${activeStocks.length} 檔熱門標的，開始強制渲染...`;
 
         for (let stock of activeStocks) {
             try {
-                // 抓取每一檔的 K 線數據
-                const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stock.symbol}?range=1mo&interval=1d`;
-                const charRes = await fetch(`${myProxy}?url=${encodeURIComponent(chartUrl)}`);
-                const charData = await charRes.json();
-                
-                const result = charData.chart.result[0];
-                const close = result.indicators.adjclose[0].adjclose;
-                const quote = result.indicators.quote[0];
-                const vol = quote.volume;
+                // 直接渲染基本資訊，不等待 K 線下載（減少出錯機會）
+                const symbolStr = stock.symbol.split('.')[0];
+                const price = stock.regularMarketPrice || "---";
+                const change = stock.regularMarketChangePercent || 0;
 
-                // 基礎數據計算
-                const lastPrice = close[close.length - 1];
-                const prevPrice = close[close.length - 2];
-                const change = ((lastPrice - prevPrice) / prevPrice * 100).toFixed(2);
-                const currentVol = vol[vol.length - 1];
-                const avgVol = vol.slice(-5).reduce((a, b) => a + b) / 5;
-                const volRatio = (currentVol / avgVol).toFixed(2);
-
-                // 計算 5 日線 (MA5)
-                const ma5 = (close.slice(-5).reduce((a, b) => a + b) / 5).toFixed(2);
-
-                // --- 這裡是關鍵：if(true) 代表不做任何過濾，全部顯示 ---
-                if (true) {
-                    results.innerHTML += `
-                        <div class="card">
-                            <div class="ticker-row">
-                                <div>
-                                    <span class="ticker">${stock.symbol.split('.')[0]}</span>
-                                    <span class="name">${stock.shortName || ''}</span>
-                                </div>
-                                <span style="color:${lastPrice > ma5 ? 'var(--primary)' : '#555'}">
-                                    ${lastPrice > ma5 ? '📈 站上MA5' : '☁️ 低於MA5'}
-                                </span>
-                            </div>
-                            
-                            <div class="price-row" style="color:${change >= 0 ? 'var(--up)' : 'var(--down)'}">
-                                ${lastPrice.toFixed(2)}
-                                <span class="change-percent">${change >= 0 ? '+' : ''}${change}%</span>
-                            </div>
-
-                            <div class="data-box">
-                                🔥 即時量能：${volRatio} 倍<br>
-                                📊 五日均價：${ma5}<br>
-                                🕒 更新時間：${new Date().toLocaleTimeString()}
-                            </div>
-                            
-                            <div style="margin-top:15px; display:flex; gap:10px;">
-                                <a href="https://tw.stock.yahoo.com/quote/${stock.symbol}" target="_blank" style="flex:1; text-align:center; color:#fff; text-decoration:none; font-size:0.8rem; background:#333; padding:5px; border-radius:4px;">詳情</a>
-                                <a href="https://www.google.com/search?q=${stock.symbol.split('.')[0]}+新聞&tbm=nws" target="_blank" style="flex:1; text-align:center; color:#fff; text-decoration:none; font-size:0.8rem; background:#333; padding:5px; border-radius:4px;">新聞</a>
-                            </div>
-                        </div>`;
-                }
+                // 建立卡片
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="ticker">${symbolStr}</div>
+                    <div style="font-size: 1.5rem; margin: 10px 0; color: ${change >= 0 ? '#f85149' : '#3fb950'}">
+                        ${price} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)
+                    </div>
+                    <div style="font-size: 0.8rem; color: #8b949e;">
+                        市場：${stock.fullExchangeName || '台股'} <br>
+                        成交量：${stock.regularMarketVolume || '載入中'}
+                    </div>
+                `;
+                results.appendChild(card);
             } catch (e) {
-                console.error(`解析 ${stock.symbol} 時發生錯誤:`, e);
+                console.error("單一股票渲染失敗", e);
             }
         }
-        status.innerText = "🎯 掃描任務已完成，數據已全數載入。";
+        status.innerText = "🎯 掃描完成。如果畫面仍空，請確認 Google Script 部署是否選為「所有人」。";
+
     } catch (err) {
-        console.error("通道連線錯誤:", err);
-        status.innerHTML = `<b style="color:var(--up)">❌ 連線失敗：</b>請檢查 Google Script URL 是否填寫正確，且部署權限是否設為「所有人」。`;
+        status.innerText = "❌ 通道故障";
+        debug.innerText = "錯誤訊息: " + err.message;
+        console.error(err);
     }
 }
 </script>
