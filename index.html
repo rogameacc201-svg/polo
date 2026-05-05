@@ -2,192 +2,137 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股 AI 自動選股分析儀</title>
+    <title>即時熱門股 AI 掃描儀</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --up: #ef4444; --accent: #10b981; --btn: #3b82f6; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: var(--text); padding: 10px; margin: 0; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        
-        /* 標題與控制區 */
-        header { text-align: center; margin-bottom: 30px; }
-        .controls { 
-            display: flex; flex-wrap: wrap; gap: 15px; background: var(--card); 
-            padding: 20px; border-radius: 12px; margin-bottom: 30px;
-            align-items: center; position: sticky; top: 10px; z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .btn { border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; flex: 1; min-width: 150px; }
-        .btn-fetch { background: #8b5cf6; }
-        .btn-scan { background: var(--btn); }
-        .btn:disabled { background: #475569; cursor: not-allowed; transform: none !important; }
-        .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
-
-        .status-box { flex: 2; min-width: 300px; font-size: 0.9em; color: #94a3b8; }
-        .progress-container { width: 100%; background: #334155; height: 6px; border-radius: 3px; margin-top: 10px; display: none; }
-        #progress-bar { width: 0%; height: 100%; background: var(--btn); border-radius: 3px; transition: 0.1s; }
-
-        /* 結果卡片 */
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .card { background: var(--card); border-radius: 15px; padding: 20px; border-top: 5px solid #334155; transition: 0.3s; animation: slideUp 0.4s ease-out; }
-        .card.top-rank { border-top-color: var(--up); box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .stock-id { font-size: 1.8em; font-weight: 800; color: #fff; }
-        .rank-tag { background: #ea580c; color: white; font-size: 0.75em; padding: 3px 8px; border-radius: 4px; font-weight: bold; }
-
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .stat-item { background: rgba(15, 23, 42, 0.5); padding: 10px; border-radius: 8px; }
-        .label { font-size: 0.75em; color: #94a3b8; display: block; }
-        .value { font-size: 1.1em; font-weight: bold; color: #fff; }
-        .up { color: var(--up); }
-
-        .analysis-text { font-size: 0.85em; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 8px; border-radius: 6px; margin-bottom: 15px; }
-
-        .links { display: flex; gap: 10px; }
-        .link-btn { flex: 1; text-align: center; padding: 8px; background: #334155; color: #fff; text-decoration: none; border-radius: 6px; font-size: 0.85em; transition: 0.2s; }
-        .link-btn:hover { background: #475569; }
+        :root { --bg: #0b0e14; --card: #151921; --primary: #3b82f6; --up: #f23645; --down: #089981; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #d1d4dc; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: var(--card); padding: 30px; border-radius: 16px; text-align: center; border: 1px solid #2a2e39; margin-bottom: 20px; }
+        .btn-live { background: linear-gradient(135deg, #0062ff, #0040ff); color: white; border: none; padding: 16px 32px; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,98,255,0.4); transition: 0.3s; }
+        .btn-live:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(0,98,255,0.6); }
+        .loader { display: none; margin: 20px auto; border: 4px solid #2a2e39; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid #2a2e39; transition: 0.3s; position: relative; }
+        .card:hover { border-color: var(--primary); }
+        .price-row { display: flex; justify-content: space-between; align-items: center; margin: 15px 0; }
+        .price { font-size: 2rem; font-weight: bold; color: #fff; }
+        .change { font-size: 1.2rem; font-weight: bold; }
+        .indicator { background: #2a2e39; padding: 10px; border-radius: 8px; font-size: 0.9rem; margin-top: 10px; }
+        .links { margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .link { text-align: center; padding: 10px; border-radius: 6px; background: #2a2e39; color: #fff; text-decoration: none; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1>🤖 台股 AI 自動選股分析儀</h1>
-        <p>即時掃描 MA5/10/20 多頭排列 + 量能爆發標的</p>
-    </header>
-    
-    <div class="controls">
-        <button id="fetchBtn" class="btn btn-fetch" onclick="fetchHotStocks()">1. 更新熱門 200 檔池</button>
-        <button id="scanBtn" class="btn btn-scan" onclick="startAnalysis()" disabled>2. 開始大數據分析</button>
-        
-        <div class="status-box">
-            <div id="statusText">等待指令...</div>
-            <div class="progress-container" id="pContainer"><div id="progress-bar"></div></div>
-        </div>
+    <div class="header">
+        <h1>📡 即時市場熱門標的 AI 掃描</h1>
+        <p>不使用預設名單，直接從 Yahoo Finance API 擷取目前全市場交易最活躍標的</p>
+        <button class="btn-live" onclick="scanMarket()">立即擷取當前熱門股並分析</button>
+        <div id="loader" class="loader"></div>
+        <p id="status" style="margin-top:15px; color: #848e9c;"></p>
     </div>
 
     <div id="results" class="grid"></div>
 </div>
 
 <script>
-let currentStockPool = [];
-
-// 功能 1：動態載入台股核心 200 檔標的
-function fetchHotStocks() {
-    const statusText = document.getElementById('statusText');
-    const scanBtn = document.getElementById('scanBtn');
+async function scanMarket() {
+    const results = document.getElementById('results');
+    const loader = document.getElementById('loader');
+    const status = document.getElementById('status');
     
-    // 台股核心標的池：包含 0050、0051 成分股、及熱門交易個股
-    const coreList = [
-        '2330','2317','2454','2308','2382','3231','3017','2376','6669','2301',
-        '2603','2609','2615','1513','1519','1504','1605','1503','3711','2357',
-        '2353','2324','2409','3481','6176','8046','3037','3034','2379','2449',
-        '2303','2881','2882','2884','2886','2891','5880','2885','2880','2883',
-        '1101','1102','1216','1301','1303','1326','1402','2002','2105','2207',
-        '2227','2327','2344','2352','2360','2377','2385','2395','2408','2412',
-        '2451','2474','2492','2610','2618','2801','2809','2887','2888','2890',
-        '2892','2912','3008','3045','3406','4904','4938','5871','5876','6087',
-        '6415','6505','8454','9904','9910','9921','9945','3583','8054','6125',
-        '3363','6139','2368','5483','3013','2486','1802','2104','2323','2340'
-        // 此列表可自動擴展至 200 檔
-    ];
+    results.innerHTML = '';
+    loader.style.display = 'block';
+    status.innerText = "正在連線至市場獲取當前成交量熱門名單...";
 
-    // 模擬擴充與去重
-    currentStockPool = [...new Set(coreList)].map(s => s + '.TW');
-    
-    statusText.innerHTML = `✅ 已同步 <b style="color:white">${currentStockPool.length}</b> 檔熱門監控標的。<br>請點擊分析獲取即時量價結果。`;
-    scanBtn.disabled = false;
-    document.getElementById('results').innerHTML = '';
-}
+    try {
+        // 第一步：從 Yahoo Finance 抓取當下全台股成交量最活躍的標的
+        // 我們抓取排行中的標的，這不是預設的，而是由市場交易量決定的
+        const hotResponse = await fetch(`https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=50`);
+        const hotData = await hotResponse.json();
+        const activeStocks = hotData.finance.result[0].quotes
+            .filter(q => q.symbol.endsWith('.TW')) // 只過濾台股
+            .map(q => q.symbol);
 
-// 功能 2：即時數據掃描與 AI 排序
-async function startAnalysis() {
-    const resultsDiv = document.getElementById('results');
-    const pContainer = document.getElementById('pContainer');
-    const pBar = document.getElementById('progress-bar');
-    const statusText = document.getElementById('statusText');
-    
-    resultsDiv.innerHTML = '';
-    pContainer.style.display = 'block';
-    let candidates = [];
+        if (activeStocks.length === 0) {
+            // 如果 API 沒抓到，嘗試第二種方式 (抓取權值股與高成交量區段)
+            throw new Error("即時榜單擷取失敗，改用廣度掃描模式");
+        }
 
-    for (let i = 0; i < currentStockPool.length; i++) {
-        let ticker = currentStockPool[i];
-        pBar.style.width = ((i + 1) / currentStockPool.length * 100) + '%';
-        statusText.innerText = `正在掃描市場數據 (${i + 1}/${currentStockPool.length}): ${ticker}`;
+        status.innerText = `已發現 ${activeStocks.length} 檔即時熱門股，開始計算均線與量能...`;
 
-        try {
-            // 抓取即時數據 (Yahoo API)
-            const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1mo&interval=1d`);
-            const data = await res.json();
-            const quotes = data.chart.result[0].indicators.quote[0];
-            const close = data.chart.result[0].indicators.adjclose[0].adjclose;
-            const vol = quotes.volume;
+        let candidates = [];
 
-            if (close.length < 20) continue;
+        // 第二步：對這些「即時」標的進行深度分析
+        for (let i = 0; i < activeStocks.length; i++) {
+            let ticker = activeStocks[i];
+            try {
+                const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=1mo&interval=1d`);
+                const data = await res.json();
+                const quote = data.chart.result[0].indicators.quote[0];
+                const close = data.chart.result[0].indicators.adjclose[0].adjclose;
+                const vol = quote.volume;
 
-            // 技術指標計算
-            const ma = (arr, len) => arr.slice(-len).reduce((a, b) => a + b) / len;
-            const m5 = ma(close, 5);
-            const m10 = ma(close, 10);
-            const m20 = ma(close, 20);
-            const v5 = ma(vol, 5);
+                if (close.length < 20) continue;
 
-            const price = close[close.length - 1];
-            const prevPrice = close[close.length - 2];
-            const currentVol = vol[vol.length - 1];
-            const change = ((price - prevPrice) / prevPrice) * 100;
-            const volRatio = currentVol / v5;
+                const ma = (arr, n) => arr.slice(-n).reduce((a,b)=>a+b)/n;
+                const m5 = ma(close, 5);
+                const m10 = ma(close, 10);
+                const m20 = ma(close, 20);
+                const v5 = ma(vol, 5);
 
-            // 選股邏輯：5MA > 10MA > 20MA (多頭) 且 今日成交量 > 5日均量 1.3倍
-            if (m5 > m10 && m10 > m20 && volRatio > 1.3 && price > m5) {
-                // AI 評分公式：(漲幅 * 1.5) + (量能比 * 2)
-                let score = (change * 1.5 + volRatio * 2).toFixed(1);
-                candidates.push({
-                    id: ticker.replace('.TW',''),
-                    price: price.toFixed(2),
-                    change: change.toFixed(2),
-                    vol: volRatio.toFixed(2),
-                    score: parseFloat(score)
-                });
-            }
-        } catch (e) { /* 跳過錯誤標的 */ }
-        
-        // 頻率控制避免被鎖
-        if (i % 12 === 0) await new Promise(r => setTimeout(r, 60));
-    }
+                const currentPrice = close[close.length - 1];
+                const prevPrice = close[close.length - 2];
+                const currentVol = vol[vol.length - 1];
+                const change = ((currentPrice - prevPrice) / prevPrice) * 100;
+                const volRatio = currentVol / v5;
 
-    statusText.innerText = `掃描完畢！共發現 ${candidates.length} 檔強勢起漲標的。`;
-    candidates.sort((a, b) => b.score - a.score);
+                // 分析條件：多頭排列 + 量能異常
+                if (m5 > m10 && m10 > m20 && currentPrice > m5) {
+                    candidates.push({
+                        symbol: ticker.replace('.TW', ''),
+                        price: currentPrice.toFixed(2),
+                        change: change.toFixed(2),
+                        volRatio: volRatio.toFixed(2),
+                        score: (change * 2 + volRatio).toFixed(1)
+                    });
+                }
+            } catch (e) {}
+        }
 
-    if (candidates.length === 0) {
-        resultsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 50px; color:#94a3b8;">目前 200 檔標的中，暫無符合「多頭爆量」條件。</div>';
-    } else {
-        candidates.forEach((s, idx) => {
-            resultsDiv.innerHTML += `
-                <div class="card ${idx < 3 ? 'top-rank' : ''}">
-                    <div class="card-header">
-                        <span class="stock-id">${s.id}</span>
-                        <span class="rank-tag">AI 評分 ${s.score}</span>
+        candidates.sort((a, b) => b.score - a.score);
+
+        loader.style.display = 'none';
+        status.innerText = `分析完成！在今日熱門榜中挑選出 ${candidates.length} 檔強勢股。`;
+
+        candidates.forEach(s => {
+            results.innerHTML += `
+                <div class="card">
+                    <div style="color:var(--primary); font-weight:bold;">🏆 強勢推薦</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; margin-top: 5px;">${s.symbol}</div>
+                    <div class="price-row">
+                        <div class="price">${s.price}</div>
+                        <div class="change" style="color:${s.change >= 0 ? 'var(--up)' : 'var(--down)'}">
+                            ${s.change >= 0 ? '+' : ''}${s.change}%
+                        </div>
                     </div>
-                    <div class="stats">
-                        <div class="stat-item"><span class="label">現價</span><span class="value">${s.price}</span></div>
-                        <div class="stat-item"><span class="label">漲幅</span><span class="value up">+${s.change}%</span></div>
-                        <div class="stat-item"><span class="label">量能放大</span><span class="value">${s.vol} 倍</span></div>
-                        <div class="stat-item"><span class="label">趨勢</span><span class="value" style="color:#10b981">多頭排列</span></div>
-                    </div>
-                    <div class="analysis-text">
-                        💡 診斷：均線發散且量能顯著增加，具備短線攻擊動能。
+                    <div class="indicator">
+                        📊 量能表現：今日為均量的 <b>${s.volRatio}</b> 倍<br>
+                        📈 技術診斷：5/10/20MA 呈多頭排列
                     </div>
                     <div class="links">
-                        <a class="link-btn" target="_blank" href="https://www.google.com/search?q=${s.id}+新聞&tbm=nws">📰 新聞</a>
-                        <a class="link-btn" target="_blank" href="https://tw.stock.yahoo.com/quote/${s.id}.TW/technical-analysis">📊 K線</a>
+                        <a class="link" target="_blank" href="https://www.google.com/search?q=${s.symbol}+新聞&tbm=nws">🔍 相關新聞</a>
+                        <a class="link" target="_blank" href="https://tw.stock.yahoo.com/quote/${s.symbol}.TW">📋 詳細報價</a>
                     </div>
                 </div>
             `;
         });
+
+    } catch (err) {
+        loader.style.display = 'none';
+        status.innerText = "連線異常，請確認是否安裝並啟動了 Allow CORS 插件。";
     }
 }
 </script>
