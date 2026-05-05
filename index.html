@@ -2,84 +2,64 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股成交量熱門榜 - 官方數據版</title>
+    <title>台股熱門榜 - 鉅亨數據版</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; --text: #c9d1d9; --gray: #8b949e; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 1000px; }
-        .header { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 25px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-scan:hover { background: #2ea043; transform: scale(1.02); }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; --text: #c9d1d9; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .header { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 25px; width: 100%; max-width: 800px; }
+        .btn-scan { background: #238636; color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; width: 100%; max-width: 1200px; }
         .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; border-left: 6px solid #444; }
-        .stock-id { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
-        .price { font-size: 2.3rem; font-weight: 900; margin: 10px 0; }
-        .status-msg { margin-top: 15px; font-size: 0.9rem; color: var(--gray); }
+        .price { font-size: 2.2rem; font-weight: 900; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h1>🏛️ 台股即時成交排行 (官方源)</h1>
-        <p>從證交所獲取今日成交量前 20 名之熱門標的</p>
-        <button class="btn-scan" id="btnRun">⚡ 掃描今日熱門標的</button>
-        <div id="status" class="status-msg">準備就緒</div>
-    </div>
-    <div id="results" class="grid"></div>
+<div class="header">
+    <h1>🔥 台股熱門成交排行</h1>
+    <p>使用鉅亨網備援接口 (避開證交所封鎖)</p>
+    <button class="btn-scan" id="btn">⚡ 執行掃描</button>
+    <div id="status" style="margin-top:15px; color:#8b949e;">準備就緒</div>
 </div>
 
-<script>
-    // ⚠️ 請填入你部署好的最新 GAS 網址 (確認結尾是 /exec)
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbylnE36bZRX_pkbtxVrgMnRrtcOeLQGZBEx_r7Cr6bgc7Zrcg7gZxZBA2y2mJv79LeQ/exec";
+<div id="results" class="grid"></div>
 
-    document.getElementById('btnRun').addEventListener('click', async () => {
-        if (GAS_URL.includes("你的")) { alert("請先設定 GAS 網址"); return; }
-        
+<script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyTct7daDOxASirHANNRDsTsqt1jv6iipSXacaoVGI4_UeipcRUVMHMDPMUX9JgA6lC/exec"; // ⚠️ 請更換
+
+    document.getElementById('btn').addEventListener('click', async () => {
         const results = document.getElementById('results');
         const status = document.getElementById('status');
         results.innerHTML = "";
-        status.innerText = "⏳ 正在請求證交所官方即時數據...";
+        status.innerText = "⏳ 正在請求數據...";
 
         try {
             const response = await fetch(GAS_URL + "?t=" + Date.now());
             const data = await response.json();
-
-            if (data.error) throw new Error(data.error);
             const list = data.result || [];
 
-            if (list.length === 0) {
-                status.innerText = "⚠️ 抓取成功但無資料 (非交易日或資料尚未更新)";
-                return;
-            }
-
             list.forEach(s => {
-                const change = s.regularMarketChangePercent || 0;
-                const isUp = change >= 0;
+                const isUp = s.change >= 0;
                 const color = isUp ? "var(--up)" : "var(--down)";
                 const card = document.createElement('div');
                 card.className = "card";
                 card.style.borderLeftColor = color;
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <span class="stock-id">${s.symbol}</span>
-                        <span style="color:var(--gray); font-weight:bold">${s.shortName}</span>
+                    <div style="display:flex; justify-content:space-between">
+                        <b style="color:var(--primary); font-size:1.2rem">${s.symbol}</b>
+                        <span>${s.shortName}</span>
                     </div>
                     <div class="price" style="color:${color}">
-                        ${s.regularMarketPrice.toFixed(2)}
-                        <span style="font-size:1.1rem">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
+                        ${(s.price || 0).toFixed(2)}
+                        <span style="font-size:1rem">${isUp ? '▲' : '▼'}${Math.abs(s.change).toFixed(2)}%</span>
                     </div>
-                    <div style="font-size:0.85rem; color:var(--gray); border-top:1px solid #333; padding-top:8px">
-                        今日成交：${Math.floor(s.regularMarketVolume / 1000).toLocaleString()} 張
-                    </div>
+                    <div style="font-size:0.85rem; color:#8b949e">成交量：${Math.floor(s.vol).toLocaleString()}</div>
                 `;
                 results.appendChild(card);
             });
-
-            status.innerText = `✅ 更新完成！抓取時間：${new Date().toLocaleTimeString()}`;
-
+            status.innerText = "✅ 更新成功";
         } catch (err) {
-            status.innerText = "❌ 發生錯誤：" + err.message;
+            status.innerText = "❌ 連線失敗";
             console.error(err);
         }
     });
