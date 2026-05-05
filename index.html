@@ -3,93 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股即時強勢雷達 - 穿透版</title>
+    <title>台股即時強勢雷達 - 終極修復版</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; }
-        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
-        .header { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 15px; }
-        .price-up { color: var(--up); font-size: 1.8rem; font-weight: bold; }
-        .price-down { color: var(--down); font-size: 1.8rem; font-weight: bold; }
-        #debug { background: #000; color: #0f0; padding: 10px; font-size: 11px; margin-top: 10px; display: none; white-space: pre-wrap; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
+        .header { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 25px; }
+        .btn-scan { background: #238636; color: white; border: none; padding: 14px 40px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+        .btn-scan:hover { background: #2ea043; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; border-left: 5px solid transparent; }
+        .is-up { border-left-color: var(--up); }
+        .is-down { border-left-color: var(--down); }
+        .price { font-size: 2.2rem; font-weight: 800; margin: 10px 0; }
+        #debug-box { background: #000; color: #0f0; padding: 15px; font-size: 12px; margin-top: 15px; display: none; text-align: left; overflow: auto; max-height: 300px; border: 1px solid #444; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>📈 即時熱門台股掃描</h1>
-    <p>自動從搜尋引擎抓取當前最受關注的標的</p>
-    <button class="btn-scan" onclick="smartScan()">⚡ 執行穿透掃描</button>
-    <div id="status" style="margin-top:10px; color:#8b949e;">準備就緒</div>
-    <div id="debug"></div>
+    <p>自動從 Yahoo 搜尋引擎穿透抓取當前最活躍標的</p>
+    <button class="btn-scan" onclick="smartScan()">⚡ 執行動態掃描</button>
+    <div id="status" style="margin-top:15px; color:#8b949e;">準備就緒</div>
+    <div id="debug-box"><strong>DEBUG 日誌：</strong><br></div>
 </div>
 
 <div id="results" class="grid"></div>
 
 <script>
-    // 請確認你的 GAS 已經更新並重新發布
     const myProxy = "https://script.google.com/macros/s/AKfycbzomDPhtm28NHi8s4tWhwZJ90p4Gg0XVgyQ4xR1KtiW2satBLblV5peSngnEo6QdakN/exec";
+
+    function log(msg) {
+        const box = document.getElementById('debug-box');
+        box.style.display = "block";
+        box.innerHTML += msg + "<br>";
+        console.log(msg);
+    }
 
     async function smartScan() {
         const results = document.getElementById('results');
         const status = document.getElementById('status');
-        const debug = document.getElementById('debug');
+        const debugBox = document.getElementById('debug-box');
         
         results.innerHTML = "";
-        status.innerText = "⏳ 正在模擬搜尋請求...";
+        debugBox.innerHTML = "<strong>DEBUG 日誌：</strong><br>";
+        status.innerText = "⏳ 正在啟動動態搜尋...";
 
         try {
-            // 策略：搜尋 ".TW" 關鍵字，Yahoo 會回傳目前權重最高、最熱門的台灣股票
-            const searchTarget = `https://query1.finance.yahoo.com/v1/finance/search?q=.TW&quotesCount=20&newsCount=0`;
-            const searchUrl = `${myProxy}?url=${encodeURIComponent(searchTarget)}`;
+            // 第一步：搜尋台股相關的動態標的 (使用搜尋聯想)
+            const searchUrl = `${myProxy}?url=${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=.TW&quotesCount=15')}`;
+            log("正在連線第一層搜尋接口...");
             
             const searchRes = await fetch(searchUrl);
-            const searchData = JSON.parse(await searchRes.text());
+            const searchText = await searchRes.text();
+            let searchData;
             
-            // 取得搜尋到的代碼清單
-            const foundQuotes = searchData.quotes || [];
-            if (foundQuotes.length === 0) throw new Error("搜尋不到任何股票代碼");
+            try {
+                searchData = JSON.parse(searchText);
+            } catch(e) {
+                log("第一層 JSON 解析失敗: " + searchText.substring(0, 100));
+                throw new Error("Proxy 回傳非 JSON 格式");
+            }
+
+            // 自動尋找代碼位置
+            const foundQuotes = searchData.quotes || (searchData.finance && searchData.finance.result ? searchData.finance.result[0].quotes : null);
+            
+            if (!foundQuotes || foundQuotes.length === 0) {
+                log("搜尋結果為空，原始資料：" + JSON.stringify(searchData));
+                throw new Error("無法獲取初始代碼清單");
+            }
 
             const symbols = foundQuotes.map(q => q.symbol).join(',');
-            status.innerText = `🔍 已偵測到 ${foundQuotes.length} 檔動態標的，抓取報價中...`;
+            log(`成功偵測到代碼: ${symbols}`);
 
-            // 取得這些代碼的即時報價
-            const quoteTarget = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-            const quoteUrl = `${myProxy}?url=${encodeURIComponent(quoteTarget)}`;
+            // 第二步：批次請求報價
+            status.innerText = "🔍 正在抓取即時行情...";
+            const quoteUrl = `${myProxy}?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`)}`;
             
             const quoteRes = await fetch(quoteUrl);
-            const quoteData = JSON.parse(await quoteRes.text());
-            const list = quoteData.quoteResponse.result || [];
+            const quoteText = await quoteRes.text();
+            const quoteData = JSON.parse(quoteText);
+
+            // 核心修復：三層結構檢查 (防止 undefined)
+            let list = null;
+            if (quoteData.quoteResponse && quoteData.quoteResponse.result) {
+                list = quoteData.quoteResponse.result;
+            } else if (quoteData.finance && quoteData.finance.result) {
+                list = quoteData.finance.result;
+            } else if (Array.isArray(quoteData.result)) {
+                list = quoteData.result;
+            }
+
+            if (!list || list.length === 0) {
+                log("行情解析失敗，回傳結構為：" + JSON.stringify(quoteData));
+                throw new Error("報價清單結構解析錯誤");
+            }
 
             list.forEach(s => {
                 const change = s.regularMarketChangePercent || 0;
                 const isUp = change >= 0;
                 const card = document.createElement('div');
-                card.className = "card";
+                card.className = `card ${isUp ? 'is-up' : 'is-down'}`;
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between">
-                        <span style="color:var(--primary); font-weight:bold">${s.symbol.split('.')[0]}</span>
-                        <span style="font-size:0.8rem; color:#8b949e">${s.shortName || ''}</span>
+                        <span style="color:var(--primary); font-weight:bold; font-size:1.2rem">${(s.symbol || "").split('.')[0]}</span>
+                        <span style="font-size:0.9rem; color:#8b949e">${s.shortName || ''}</span>
                     </div>
-                    <div class="${isUp ? 'price-up' : 'price-down'}">
+                    <div class="price" style="color: ${isUp ? 'var(--up)' : 'var(--down)'}">
                         ${(s.regularMarketPrice || 0).toFixed(2)}
-                        <span style="font-size:1rem">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
+                        <span style="font-size:1.2rem">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
                     </div>
-                    <div style="font-size:0.8rem; color:#8b949e; margin-top:10px; border-top:1px solid #333; padding-top:5px">
+                    <div style="font-size:0.85rem; color:#8b949e; border-top:1px solid #333; padding-top:8px">
                         成交量：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張
                     </div>
                 `;
                 results.appendChild(card);
             });
 
-            status.innerText = `✅ 已成功抓取最新動態標的 (${new Date().toLocaleTimeString()})`;
+            status.innerText = `✅ 掃描完成！更新時間：${new Date().toLocaleTimeString()}`;
 
         } catch (err) {
-            status.innerText = "❌ 穿透掃描失敗";
-            debug.style.display = "block";
-            debug.innerText = "失敗原因：" + err.message;
+            status.innerText = "❌ 掃描中斷";
+            log("錯誤詳情：" + err.message);
         }
     }
 </script>
