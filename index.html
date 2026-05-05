@@ -2,13 +2,13 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股雷達 - 診斷模式</title>
+    <title>台股雷達 - 最終穩定版</title>
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --accent: #58a6ff; }
         body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
         .box { background: var(--card); border: 1px solid var(--border); padding: 25px; border-radius: 8px; text-align: center; }
         .btn { background: #238636; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
-        .debug-log { background: #000; color: #0f0; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: left; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; display: none; }
+        .debug-log { background: #000; color: #0f0; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; display: none; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
         .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
         .up { color: #f85149; } .down { color: #3fb950; }
@@ -17,17 +17,16 @@
 <body>
 
 <div class="box">
-    <h1>🇹🇼 台股診斷雷達</h1>
-    <p>如果顯示連線錯誤，請查看下方的綠色診斷文字</p>
-    <button class="btn" onclick="startScan()">🚀 啟動連線測試</button>
-    <div id="status" style="margin-top:15px;">等待指令...</div>
+    <h1>🇹🇼 台股監測 - 強力掃描版</h1>
+    <p>優先搜尋台股漲幅榜標的</p>
+    <button class="btn" onclick="startScan()">🚀 開始即時掃描</button>
+    <div id="status" style="margin-top:15px;">準備就緒</div>
     <div id="debug" class="debug-log"></div>
 </div>
 
 <div id="results" class="grid"></div>
 
 <script>
-// !!! 請在此處填入你「重新部署」後的網址 !!!
 const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
 
 async function startScan() {
@@ -37,51 +36,55 @@ async function startScan() {
     
     status.innerText = "正在連線私人通道...";
     debug.style.display = "block";
-    debug.innerText = "系統日誌：開始連線至 " + myProxy.substring(0, 40) + "...";
+    debug.innerText = "系統日誌：開始連線...";
     results.innerHTML = "";
 
     try {
-        // 使用更穩定的 Yahoo 台股活躍榜接口
-        const target = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=50";
+        // 改用台股專屬漲幅榜，確保 100% 抓到台股
+        const target = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers_taiwan&count=50";
         const fetchUrl = `${myProxy}?url=${encodeURIComponent(target)}`;
         
         const response = await fetch(fetchUrl);
         const text = await response.text();
         
-        debug.innerText += "\n系統日誌：收到回應，長度為 " + text.length;
+        debug.innerText += "\n系統日誌：成功通訊，數據長度 " + text.length;
 
-        // 如果回傳的是 HTML 而不是 JSON，通常是 Google 要求登入
+        // 檢查權限
         if (text.includes("<!DOCTYPE html>") || text.includes("login")) {
-            status.innerText = "❌ 連線失敗：權限不足";
-            debug.innerText += "\n\n⚠️ 錯誤診斷：Google Script 要求登入。請確認部署時「誰可以存取」是否真的選為「所有人(Anyone)」，而不是「任何擁有 Google 帳戶的人」。";
+            status.innerText = "❌ 失敗：請檢查 Google 部署權限是否為「所有人」";
             return;
         }
 
         const data = JSON.parse(text);
-        const stocks = data.finance.result[0].quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
+        const stocks = data.finance.result[0].quotes;
 
-        if (stocks.length === 0) {
-            status.innerText = "⚠️ 成功連線但查無台股資料";
-            debug.innerText += "\n系統日誌：Yahoo 榜單目前不含台股，建議於台股交易時間測試。";
+        if (!stocks || stocks.length === 0) {
+            status.innerText = "⚠️ 榜單目前為空 (可能非交易時段)";
             return;
         }
 
-        status.innerText = `✅ 成功！找到 ${stocks.length} 檔台股`;
+        status.innerText = `✅ 掃描成功！找到 ${stocks.length} 檔強勢台股`;
+        
         stocks.forEach(s => {
-            const isUp = s.regularMarketChangePercent >= 0;
+            const price = s.regularMarketPrice || 0;
+            const change = s.regularMarketChangePercent || 0;
+            const isUp = change >= 0;
+            const symbol = s.symbol.split('.')[0];
+            
             results.innerHTML += `
                 <div class="card">
-                    <b style="color:var(--accent)">${s.symbol.split('.')[0]}</b> ${s.shortName || ''}<br>
-                    <div style="font-size:1.5rem; margin:10px 0;" class="${isUp ? 'up' : 'down'}">
-                        ${s.regularMarketPrice.toFixed(2)} (${isUp ? '+' : ''}${s.regularMarketChangePercent.toFixed(2)}%)
+                    <b style="color:var(--accent)">${symbol}</b> ${s.shortName || ''}<br>
+                    <div style="font-size:1.8rem; margin:10px 0;" class="${isUp ? 'up' : 'down'}">
+                        ${price.toFixed(2)} 
+                        <span style="font-size:1rem;">(${isUp ? '+' : ''}${change.toFixed(2)}%)</span>
                     </div>
-                    <small>量：${s.regularMarketVolume}</small>
+                    <small>成交張數：${Math.floor(s.regularMarketVolume / 1000) || '--'}</small>
                 </div>`;
         });
 
     } catch (err) {
-        status.innerText = "❌ 連線程序崩潰";
-        debug.innerText += "\n\n致命錯誤內容：\n" + err.toString();
+        status.innerText = "❌ 程序執行錯誤";
+        debug.innerText += "\n\n錯誤詳情：\n" + err.toString();
     }
 }
 </script>
