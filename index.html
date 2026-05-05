@@ -3,143 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股全市場漲停監控 (穩定版)</title>
+    <title>賓果賓果即時監測</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #ef4444; --limit: #fde047; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px; }
-        h1 { margin: 0; color: var(--accent); font-size: 24px; }
-        .info { font-size: 13px; color: #94a3b8; }
-        .grid-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
-        th { background: #334155; color: #cbd5e1; padding: 12px; text-align: left; }
-        td { padding: 12px; border-bottom: 1px solid #334155; }
-        .price { font-family: monospace; font-weight: bold; font-size: 18px; }
-        .change { font-weight: 800; color: var(--accent); }
-        .badge { background: var(--limit); color: #000; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; }
-        .loader { text-align: center; padding: 50px; color: #38bdf8; }
-        .btn { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-        .error-box { background: #450a0a; color: #fecaca; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; border: 1px solid #7f1d1d; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f4f9; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 95%; max-width: 1000px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .status { color: #d9534f; font-weight: bold; }
+        #timer { color: #0275d8; }
+        iframe { width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 5px; }
+        .info { margin-top: 10px; font-size: 14px; color: #666; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="error-msg" class="error-box"></div>
-    
     <div class="header">
-        <div>
-            <h1>📊 台股漲停偵測 (穩定版)</h1>
-            <div class="info">自動獲取全市場數據，每 60 秒更新</div>
-        </div>
-        <div style="text-align: right;">
-            <div id="update-time" class="info">等待初始化...</div>
-            <button class="btn" onclick="fetchMarketData()">手動刷新</button>
+        <h2>賓果賓果資料即時更新</h2>
+        <div class="status">
+            下一期更新倒數：<span id="timer">60</span> 秒
         </div>
     </div>
 
-    <div id="loading" class="loader">正在建立加密連線並掃描市場...</div>
+    <!-- 嵌入目標網頁 -->
+    <iframe id="bingoFrame" src="https://www.pilio.idv.tw/bingo/list.asp?auto=1"></iframe>
 
-    <table id="market-table" class="grid-table" style="display: none;">
-        <thead>
-            <tr>
-                <th>代號 / 名稱</th>
-                <th>最新價</th>
-                <th>今日漲幅</th>
-                <th>狀態</th>
-            </tr>
-        </thead>
-        <tbody id="market-rows"></tbody>
-    </table>
+    <div class="info">
+        * 註：此頁面每 60 秒會自動強制重新載入下方內嵌頁面，以獲取最新開獎資訊。
+    </div>
 </div>
 
 <script>
-    async function fetchMarketData() {
-        const rows = document.getElementById('market-rows');
-        const loading = document.getElementById('loading');
-        const table = document.getElementById('market-table');
-        const errorBox = document.getElementById('error-msg');
-        
-        loading.style.display = 'block';
-        errorBox.style.display = 'none';
+    let timeLeft = 60;
+    const timerElement = document.getElementById('timer');
+    const iframe = document.getElementById('bingoFrame');
 
-        // 嘗試不同的代理伺服器以避開 CORS 限制
-        const targetUrl = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL";
-        const proxies = [
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
-        ];
-
-        let success = false;
-
-        for (let proxy of proxies) {
-            try {
-                const res = await fetch(proxy);
-                if (!res.ok) continue;
-
-                let data;
-                if (proxy.includes('allorigins')) {
-                    const raw = await res.json();
-                    data = JSON.parse(raw.contents);
-                } else {
-                    data = await res.json();
-                }
-
-                if (Array.isArray(data)) {
-                    renderTable(data);
-                    success = true;
-                    break; 
-                }
-            } catch (e) {
-                console.error("嘗試代理失敗:", proxy, e);
-            }
+    function updateTimer() {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            // 重新載入 iframe
+            iframe.src = iframe.src;
+            timeLeft = 60;
+            console.log("資料已更新: " + new Date().toLocaleTimeString());
         }
-
-        if (!success) {
-            loading.style.display = 'none';
-            errorBox.style.display = 'block';
-            errorBox.innerHTML = `
-                <strong>連線受阻：</strong> 您的瀏覽器封鎖了跨來源資料抓取。<br>
-                1. 請嘗試重新整理網頁。<br>
-                2. 如果是在公司網路，可能是防火牆擋住了代理伺服器。<br>
-                3. 建議使用 <strong>Chrome 瀏覽器</strong> 並確保網路通暢。
-            `;
-        }
+        timerElement.textContent = timeLeft;
     }
 
-    function renderTable(stocks) {
-        const rows = document.getElementById('market-rows');
-        rows.innerHTML = '';
-
-        // 這裡會抓取全市場資料並進行排序
-        // 由於 API 只提供當日平均與收盤，我們模擬出今日動態強勢股
-        // 在正式交易時段，這裡會顯示當日最活躍的標的
-        const sorted = stocks
-            .filter(s => s.ClosingPrice && s.ClosingPrice !== '0')
-            .sort(() => 0.5 - Math.random()) // 隨機演示，盤中會以漲幅排序
-            .slice(0, 25);
-
-        sorted.forEach(s => {
-            const tr = document.createElement('tr');
-            const isLimit = Math.random() > 0.8; // 模擬漲停偵測邏輯
-            const change = isLimit ? "9.95" : (Math.random() * 8).toFixed(2);
-            
-            tr.innerHTML = `
-                <td><span class="info">${s.Code}</span><br><strong>${s.Name}</strong></td>
-                <td class="price">${s.ClosingPrice}</td>
-                <td class="change">+${change}%</td>
-                <td>${isLimit ? '<span class="badge">鎖漲停</span>' : '<span style="color:#22c55e">強勢</span>'}</td>
-            `;
-            rows.appendChild(tr);
-        });
-
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('market-table').style.display = 'table';
-        document.getElementById('update-time').innerText = '最後更新：' + new Date().toLocaleTimeString();
-    }
-
-    window.onload = fetchMarketData;
-    setInterval(fetchMarketData, 60000);
+    // 每秒更新一次倒數計時
+    setInterval(updateTimer, 1000);
 </script>
 
 </body>
