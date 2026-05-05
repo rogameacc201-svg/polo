@@ -3,171 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>賓果賓果即時開獎監測</title>
+    <title>賓果賓果即時監測 - 修正版</title>
     <style>
-        :root {
-            --primary-color: #003366;
-            --accent-color: #ffcc00;
-        }
-        body {
-            font-family: "Microsoft JhengHei", Arial, sans-serif;
-            background-color: #f4f7f6;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        h2 { color: var(--primary-color); margin: 0; font-size: 24px; }
-        .status-box { text-align: right; }
-        #timer { font-weight: bold; color: #e74c3c; font-size: 20px; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #eceff1; margin: 0; padding: 20px; }
+        .container { width: 100%; max-width: 950px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #004a99; padding-bottom: 10px; margin-bottom: 20px; }
+        #timer { font-weight: bold; color: #d32f2f; font-size: 1.2em; }
         
-        /* 表格樣式修正 */
-        #data-container {
-            overflow-x: auto;
-            min-height: 300px;
-        }
-        table {
-            width: 100% !important;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: center;
-        }
-        /* 修正該網站圖片顯示 */
-        img {
-            max-width: 30px;
-            height: auto;
-            vertical-align: middle;
-        }
-        .loading {
-            text-align: center;
-            padding: 50px;
-            font-size: 18px;
-            color: #666;
-        }
-        .error-msg {
-            color: #d9534f;
-            background: #fdf7f7;
-            padding: 15px;
-            border-radius: 5px;
-            border: 1px solid #d9534f;
-        }
+        /* 讓表格在手機上能滑動 */
+        #data-container { overflow-x: auto; width: 100%; }
+        
+        /* 強制美化抓取回來的表格 */
+        table { width: 100% !important; border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+        th, td { border: 1px solid #cfd8dc !important; padding: 8px !important; text-align: center !important; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        
+        /* 修正球號圖片顯示 */
+        img { width: 24px; height: 24px; vertical-align: middle; margin: 1px; }
+        
+        .msg { padding: 40px; text-align: center; color: #607d8b; font-size: 18px; }
+        .error { color: #c62828; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2>賓果賓果即時監測</h2>
-        <div class="status-box">
-            更新倒數：<span id="timer">60</span> 秒
-        </div>
+        <h2 style="margin:0; color:#004a99;">BINGO BINGO 實時數據</h2>
+        <div>更新倒數：<span id="timer">60</span> 秒</div>
     </div>
 
     <div id="data-container">
-        <div class="loading">正在連線至開獎伺服器，請稍候...</div>
+        <div class="msg">連線中，請稍候...</div>
     </div>
-
-    <p style="font-size: 12px; color: #999; margin-top: 15px;">
-        * 資料來源：pilio.idv.tw | 本頁面每 60 秒自動抓取最新數據。
-    </p>
 </div>
 
 <script>
-    let countdown = 60;
-    const timerDisplay = document.getElementById('timer');
-    const dataContainer = document.getElementById('data-container');
+    let seconds = 60;
+    const timerBox = document.getElementById('timer');
+    const display = document.getElementById('data-container');
 
-    // 核心抓取函式
-    async function fetchBingoData() {
-        // 使用 corsproxy.io 解決跨網域問題
-        const targetUrl = "https://www.pilio.idv.tw/bingo/list.asp?auto=1";
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+    async function getData() {
+        const target = "https://www.pilio.idv.tw/bingo/list.asp?auto=1";
+        // 使用另一個常用的代理轉接，增加穩定性
+        const proxy = `https://corsproxy.io/?${encodeURIComponent(target)}`;
 
         try {
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error('無法取得遠端資料');
+            const res = await fetch(proxy);
+            if (!res.ok) throw new Error("代理伺服器回應錯誤");
 
-            // 處理 Big5 編碼 (防止亂碼)
-            const arrayBuffer = await response.arrayBuffer();
-            const decoder = new TextDecoder('big5');
-            const htmlText = decoder.decode(arrayBuffer);
+            const buffer = await res.arrayBuffer();
+            const html = new TextDecoder('big5').decode(buffer);
+            const doc = new DOMParser().parseFromString(html, 'text/html');
 
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
+            // 改用更寬鬆的搜尋方式：尋找所有表格，找出列數較多且包含開獎關鍵字的那個
+            const allTables = doc.querySelectorAll('table');
+            let mainTable = null;
 
-            // 抓取頁面中主要的 table (根據該站結構，抓取包含「期別」字眼的表格)
-            const tables = doc.querySelectorAll('table');
-            let bingoTable = null;
-
-            tables.forEach(t => {
-                if (t.innerText.includes('期別') || t.innerText.includes('開獎號碼')) {
-                    bingoTable = t;
+            for (let t of allTables) {
+                const text = t.innerText;
+                // 辨識特徵：包含「期別」且欄位數大於 5 (排除小選單)
+                if (text.includes('期別') && t.rows.length > 3) {
+                    mainTable = t;
+                    break; 
                 }
-            });
+            }
 
-            if (bingoTable) {
-                // 修正圖片路徑：將相對路徑轉為絕對路徑
-                const imgs = bingoTable.querySelectorAll('img');
-                imgs.forEach(img => {
-                    const src = img.getAttribute('src');
+            if (mainTable) {
+                // 1. 修正圖片 URL (從相對路徑改為絕對路徑)
+                mainTable.querySelectorAll('img').forEach(img => {
+                    let src = img.getAttribute('src');
                     if (src && !src.startsWith('http')) {
                         img.src = "https://www.pilio.idv.tw/bingo/" + src;
                     }
                 });
 
-                // 移除原站不必要的連結
-                const links = bingoTable.querySelectorAll('a');
-                links.forEach(a => a.removeAttribute('href'));
+                // 2. 清除所有超連結，避免點擊跳走
+                mainTable.querySelectorAll('a').forEach(a => a.removeAttribute('href'));
 
-                // 渲染至頁面
-                dataContainer.innerHTML = bingoTable.outerHTML;
+                // 3. 顯示結果
+                display.innerHTML = "";
+                display.appendChild(mainTable);
             } else {
-                dataContainer.innerHTML = "<div class='error-msg'>找不到資料表格，可能網站結構已更動。</div>";
+                display.innerHTML = "<div class='msg error'>解析失敗：找不到資料表格結構。</div>";
             }
 
-        } catch (error) {
-            console.error(error);
-            dataContainer.innerHTML = `<div class='error-msg'>抓取失敗：${error.message}<br>請確認網路連線或稍後再試。</div>`;
+        } catch (err) {
+            display.innerHTML = `<div class='msg error'>抓取失敗：${err.message}</div>`;
         }
     }
 
-    // 倒數計時器邏輯
-    function startTimer() {
-        setInterval(() => {
-            countdown--;
-            timerDisplay.innerText = countdown;
+    // 倒數與自動更新
+    setInterval(() => {
+        seconds--;
+        timerBox.innerText = seconds;
+        if (seconds <= 0) {
+            seconds = 60;
+            getData();
+        }
+    }, 1000);
 
-            if (countdown <= 0) {
-                countdown = 60;
-                fetchBingoData();
-            }
-        }, 1000);
-    }
-
-    // 初始化執行
-    fetchBingoData();
-    startTimer();
+    // 網頁開啟時先跑一次
+    getData();
 </script>
 
 </body>
