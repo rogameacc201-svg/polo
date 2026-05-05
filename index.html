@@ -2,105 +2,150 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股即時強勢雷達 - 終極穿透版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股即時成交量雷達 - 證交所官方版</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; --text: #c9d1d9; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .header { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 25px; width: 100%; max-width: 800px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; width: 100%; max-width: 1200px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; border-left: 6px solid #444; }
-        .price { font-size: 2.2rem; font-weight: 900; margin: 10px 0; }
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --primary: #58a6ff;
+            --up: #f85149;
+            --down: #3fb950;
+            --text: #c9d1d9;
+            --gray: #8b949e;
+        }
+
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container { width: 100%; max-width: 1000px; }
+
+        .header {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-scan {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 15px 45px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-scan:hover { background-color: #2ea043; transform: translateY(-2px); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            border-left: 6px solid #444;
+        }
+
+        .stock-id { font-size: 1.3rem; font-weight: 800; color: var(--primary); }
+        .price-box { display: flex; align-items: baseline; margin: 12px 0; }
+        .price { font-size: 2.3rem; font-weight: 900; }
+        .pct { margin-left: 10px; font-size: 1.1rem; font-weight: bold; }
+        .info-footer { font-size: 0.85rem; color: var(--gray); border-top: 1px solid #30363d; padding-top: 10px; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>🔥 台股即時掃描 (免 GAS 版)</h1>
-    <p>直接從瀏覽器端請求 Yahoo 數據，繞過雲端伺服器封鎖</p>
-    <button class="btn-scan" onclick="bypassScan()">⚡ 執行直接掃描</button>
-    <div id="status" style="margin-top:15px; color:#8b949e;">準備就緒</div>
+<div class="container">
+    <div class="header">
+        <h1>🏛️ 證交所官方排行監測</h1>
+        <p>直接連線 TWSE 獲取今日成交量前 20 名標的</p>
+        <button class="btn-scan" id="btnScan">⚡ 抓取官方即時數據</button>
+        <div id="status" style="margin-top:15px; font-size:0.9rem; color:var(--gray);">準備就緒</div>
+    </div>
+
+    <div id="results" class="grid"></div>
 </div>
 
-<div id="results" class="grid"></div>
-
 <script>
-    async function bypassScan() {
-        const results = document.getElementById('results');
-        const status = document.getElementById('status');
+    // ⚠️ 貼入你最新的「證交所版」GAS 網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxjjcV-_K7zYebWiQ44g0eAV4GaAbwc-lQvWy5HXMWgk3kY87vLbmeeW_GpOHxbP02h/exec";
+
+    const btn = document.getElementById('btnScan');
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
+
+    btn.addEventListener('click', async () => {
+        if (GAS_URL.includes("你的")) { alert("請填入 GAS 網址"); return; }
+        
         results.innerHTML = "";
-        status.innerText = "⏳ 正在直接向 Yahoo 請求數據...";
+        status.innerText = "⏳ 正在請求證交所官方數據清單...";
 
         try {
-            // 策略：直接使用 Yahoo Finance 的搜尋聯想接口 (這個接口對 IP 限制極少)
-            // 我們搜尋 ".TW" 並請求 20 筆
-            const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=.TW&quotesCount=20&newsCount=0&enableFuzzyQuery=false&enableEnhancedTrivialQuery=true`;
-            
-            // 使用公共代理服務 AllOrigins 來解決 CORS 問題，這比 GAS 穩定
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
-            
-            const response = await fetch(proxyUrl);
-            const dataRaw = await response.json();
-            const data = JSON.parse(dataRaw.contents);
+            // 防止快取
+            const target = `${GAS_URL}${GAS_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+            const response = await fetch(target);
+            const data = await response.json();
 
-            const foundQuotes = data.quotes || [];
-            if (foundQuotes.length === 0) {
-                // 如果搜尋失敗，使用保底名單
-                status.innerText = "⚠️ 接口連線異常，顯示保底標的...";
-                renderDefault();
+            if (data.error) throw new Error(data.error);
+
+            const list = data.result || [];
+            if (list.length === 0) {
+                status.innerText = "⚠️ 抓取成功但暫無資料 (請確認現在是否為交易日)";
                 return;
             }
 
-            // 取得代碼後，抓取即時行情
-            const symbols = foundQuotes.map(q => q.symbol).join(',');
-            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-            const quoteRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(quoteUrl)}`);
-            const quoteData = JSON.parse((await quoteRes.json()).contents);
+            list.forEach(s => {
+                const change = s.regularMarketChangePercent || 0;
+                const isUp = change >= 0;
+                const color = isUp ? "var(--up)" : "var(--down)";
 
-            const list = quoteData.quoteResponse.result || [];
-            renderStocks(list);
-            status.innerText = `✅ 掃描成功！已抓取 ${list.length} 檔最新動態標的`;
+                const card = document.createElement('div');
+                card.className = "card";
+                card.style.borderLeftColor = color;
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center">
+                        <span class="stock-id">${s.symbol}</span>
+                        <span style="color:var(--gray); font-weight:bold">${s.shortName}</span>
+                    </div>
+                    <div class="price-box" style="color: ${color}">
+                        <div class="price">${s.regularMarketPrice.toFixed(2)}</div>
+                        <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
+                    </div>
+                    <div class="info-footer">
+                        今日成交：${(s.regularMarketVolume / 1000).toLocaleString()} 張
+                    </div>
+                `;
+                results.appendChild(card);
+            });
+
+            status.innerText = `✅ 更新完成！來源：證交所官方 (${new Date().toLocaleTimeString()})`;
 
         } catch (err) {
-            status.innerText = "❌ 掃描中斷，請確認網路連線。";
+            status.innerText = "❌ 發生錯誤：" + err.message;
             console.error(err);
         }
-    }
-
-    function renderStocks(list) {
-        const results = document.getElementById('results');
-        list.forEach(s => {
-            const change = s.regularMarketChangePercent || 0;
-            const isUp = change >= 0;
-            const color = isUp ? "var(--up)" : "var(--down)";
-            const card = document.createElement('div');
-            card.className = "card";
-            card.style.borderLeftColor = color;
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center">
-                    <b style="font-size:1.2rem; color:var(--primary)">${(s.symbol || "").split('.')[0]}</b>
-                    <span style="color:#8b949e">${s.shortName || ''}</span>
-                </div>
-                <div class="price" style="color:${color}">
-                    ${(s.regularMarketPrice || 0).toFixed(2)}
-                    <span style="font-size:1.1rem">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
-                </div>
-                <div style="font-size:0.85rem; color:#8b949e; border-top:1px solid #333; padding-top:8px">
-                    成交量: ${Math.floor((s.regularMarketVolume || 0) / 1000).toLocaleString()} 張
-                </div>
-            `;
-            results.appendChild(card);
-        });
-    }
-
-    function renderDefault() {
-        // 保底邏輯：如果連代理都被擋，直接顯示幾檔核心股
-        const defaults = [
-            {symbol: "2330.TW", shortName: "台積電", regularMarketPrice: 0, regularMarketChangePercent: 0},
-            {symbol: "2317.TW", shortName: "鴻海", regularMarketPrice: 0, regularMarketChangePercent: 0}
-        ];
-        renderStocks(defaults);
-    }
+    });
 </script>
 
 </body>
