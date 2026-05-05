@@ -2,104 +2,182 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股雷達 - 強健版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股即時監測雷達</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --accent: #58a6ff; --up: #f85149; --down: #3fb950; }
-        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
-        .box { background: var(--card); border: 1px solid var(--border); padding: 25px; border-radius: 8px; text-align: center; }
-        .btn { background: #238636; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
-        .debug-log { background: #000; color: #0f0; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: left; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; display: none; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
-        .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; border-left: 5px solid transparent; }
-        .up { border-left-color: var(--up); color: var(--up); }
-        .down { border-left-color: var(--down); color: var(--down); }
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --primary: #58a6ff;
+            --up: #f85149;
+            --down: #3fb950;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: #c9d1d9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .btn-scan {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-scan:hover { background: #2ea043; }
+        .status-bar {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-3px); border-color: var(--primary); }
+        .stock-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .symbol { font-size: 1.4rem; font-weight: bold; color: var(--primary); }
+        .name { font-size: 0.9rem; color: #8b949e; }
+        .price-box { margin: 15px 0; display: flex; align-items: baseline; }
+        .price { font-size: 2.2rem; font-weight: 800; }
+        .pct { font-size: 1.1rem; margin-left: 10px; font-weight: bold; }
+        .details {
+            font-size: 0.85rem;
+            color: #8b949e;
+            border-top: 1px solid #2d333b;
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        #debug {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-size: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            text-align: left;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h1>🇹🇼 台股即時雷達 (穩定版)</h1>
-    <p>如果榜單暫無台股，系統會自動切換搜尋策略</p>
-    <button class="btn" onclick="startScan()">🚀 啟動掃描</button>
-    <div id="status" style="margin-top:15px;">準備就緒</div>
-    <div id="debug" class="debug-log"></div>
+<div class="container">
+    <div class="header">
+        <h1>📊 台股即時雷達</h1>
+        <p>監測市場核心權值與即時強勢標的</p>
+        <button class="btn-scan" onclick="startScan()">⚡ 刷新即時報價</button>
+        <div id="status" class="status-bar">準備就緒</div>
+        <div id="debug"></div>
+    </div>
+
+    <div id="results" class="grid"></div>
 </div>
 
-<div id="results" class="grid"></div>
-
 <script>
-const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
+    // === 請在此處填入你部署的 Google Script 網址 ===
+    const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
 
-async function startScan() {
-    const status = document.getElementById('status');
-    const debug = document.getElementById('debug');
-    const results = document.getElementById('results');
-    
-    status.innerText = "🔍 正在同步數據中...";
-    debug.style.display = "block";
-    debug.innerText = "系統日誌：嘗試連線 Yahoo Finance...";
-    results.innerHTML = "";
+    async function startScan() {
+        const results = document.getElementById('results');
+        const status = document.getElementById('status');
+        const debug = document.getElementById('debug');
 
-    try {
-        // 第一波：嘗試台股漲幅榜
-        let apiTarget = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers_taiwan&count=50";
-        let fetchUrl = `${myProxy}?url=${encodeURIComponent(apiTarget)}`;
-        
-        let response = await fetch(fetchUrl);
-        let text = await response.text();
-        
-        debug.innerText += "\n收到響應長度: " + text.length;
+        results.innerHTML = "";
+        debug.style.display = "none";
+        status.innerText = "⏳ 正在請求即時數據...";
 
-        let data = JSON.parse(text);
-
-        // --- 安全檢查層 ---
-        if (!data.finance || !data.finance.result || !data.finance.result[0]) {
-            debug.innerText += "\n⚠️ 主要榜單無回應，切換至備用榜單...";
-            // 切換至：全球熱門榜單
-            apiTarget = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=100";
-            fetchUrl = `${myProxy}?url=${encodeURIComponent(apiTarget)}`;
-            response = await fetch(fetchUrl);
-            text = await response.text();
-            data = JSON.parse(text);
-        }
-
-        // --- 最終過濾層 ---
-        let quotes = data.finance.result[0].quotes || [];
-        // 如果是全球榜單，過濾出台股
-        const stocks = quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
-
-        if (stocks.length === 0) {
-            status.innerText = "⚠️ 目前所有榜單皆無台股標的 (非交易時段或數據延遲)";
-            debug.innerText += "\nYahoo 回傳內容: " + text.substring(0, 200);
+        if (myProxy.includes("你的")) {
+            alert("請先修改代碼填入 Google Script 網址");
             return;
         }
 
-        status.innerText = `✅ 成功！偵測到 ${stocks.length} 檔熱門台股`;
-        
-        stocks.forEach(s => {
-            const price = s.regularMarketPrice || 0;
-            const change = s.regularMarketChangePercent || 0;
-            const isUp = change >= 0;
+        try {
+            // 精選台股熱門池（權值、AI、重電、海運、散熱）
+            const stocksPool = [
+                "2330.TW","2317.TW","2454.TW","2382.TW","3231.TW",
+                "2308.TW","2303.TW","2603.TW","2609.TW","1513.TW",
+                "1519.TW","3017.TW","3376.TW","2353.TW","2881.TW",
+                "2882.TW","2891.TW","8046.TW","3037.TW","2376.TW"
+            ];
             
-            const card = document.createElement('div');
-            card.className = `card ${isUp ? 'up' : 'down'}`;
-            card.innerHTML = `
-                <div style="font-weight:bold; color:var(--accent)">${s.symbol.split('.')[0]} <span style="color:#8b949e; font-size:0.8rem;">${s.shortName || ''}</span></div>
-                <div style="font-size:1.8rem; margin:10px 0; font-weight:bold;">
-                    ${price.toFixed(2)}
-                    <span style="font-size:1rem;">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</span>
-                </div>
-                <div style="font-size:0.8rem; color:#8b949e;">成交張數：${Math.floor(s.regularMarketVolume / 1000) || '--'}</div>
-            `;
-            results.appendChild(card);
-        });
+            const target = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${stocksPool.join(',')}`;
+            const finalUrl = `${myProxy}?url=${encodeURIComponent(target)}`;
 
-    } catch (err) {
-        status.innerText = "❌ 解析發生異常";
-        debug.innerText += "\n\n錯誤詳情：\n" + err.toString();
-        debug.innerText += "\n\n請確認您的 GAS 代碼是否已加入 headers 偽裝，避免被 Yahoo 封鎖。";
+            const response = await fetch(finalUrl);
+            const text = await response.text();
+
+            if (text.includes("<!DOCTYPE html>")) {
+                throw new Error("Google 通道權限設錯，請設為『所有人』並發布新版本");
+            }
+
+            const data = JSON.parse(text);
+            const list = data.quoteResponse.result;
+
+            if (!list || list.length === 0) {
+                status.innerText = "⚠️ 暫無數據，請確認 Yahoo API 狀態。";
+                return;
+            }
+
+            status.innerText = `✅ 更新完成：${new Date().toLocaleTimeString()} (共 ${list.length} 檔)`;
+            
+            list.forEach(s => {
+                const change = s.regularMarketChangePercent || 0;
+                const isUp = change >= 0;
+                const color = isUp ? "var(--up)" : "var(--down)";
+
+                const card = document.createElement('div');
+                card.className = "card";
+                card.innerHTML = `
+                    <div class="stock-header">
+                        <div class="symbol">${s.symbol.split('.')[0]}</div>
+                        <div class="name">${s.shortName || ''}</div>
+                    </div>
+                    <div class="price-box" style="color: ${color}">
+                        <div class="price">${(s.regularMarketPrice || 0).toFixed(2)}</div>
+                        <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
+                    </div>
+                    <div class="details">
+                        <span>量：${Math.floor((s.regularMarketVolume || 0) / 1000)} 張</span>
+                        <span>昨收：${s.regularMarketPreviousClose || '--'}</span>
+                    </div>
+                `;
+                results.appendChild(card);
+            });
+
+        } catch (err) {
+            status.innerText = "❌ 連線失敗";
+            debug.style.display = "block";
+            debug.innerText = "錯誤診斷：\n" + err.message;
+        }
     }
-}
 </script>
+
 </body>
 </html>
