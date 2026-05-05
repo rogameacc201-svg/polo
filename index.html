@@ -2,108 +2,87 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股即時監測 - 穩定連線版</title>
+    <title>台股雷達 - 診斷模式</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --tw-red: #f85149; --tw-green: #3fb950; --accent: #58a6ff; }
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
-        .header-box { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
-        .btn-scan { background: #238636; color: white; border: none; padding: 16px 40px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
-        .stock-id { color: var(--accent); font-size: 1.5rem; font-weight: bold; }
-        .price-area { margin: 15px 0; font-size: 2rem; font-weight: bold; }
-        .change-tag { font-size: 1rem; padding: 2px 8px; border-radius: 4px; margin-left: 10px; }
-        .tag-up { background: rgba(248, 81, 73, 0.15); color: var(--tw-red); }
-        .tag-down { background: rgba(63, 185, 80, 0.15); color: var(--tw-green); }
-        .status { margin-top: 15px; color: #8b949e; }
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --accent: #58a6ff; }
+        body { font-family: sans-serif; background: var(--bg); color: #c9d1d9; padding: 20px; }
+        .box { background: var(--card); border: 1px solid var(--border); padding: 25px; border-radius: 8px; text-align: center; }
+        .btn { background: #238636; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
+        .debug-log { background: #000; color: #0f0; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: left; font-family: monospace; white-space: pre-wrap; font-size: 0.8rem; display: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 20px; }
+        .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
+        .up { color: #f85149; } .down { color: #3fb950; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header-box">
-        <h1>🇹🇼 台股即時熱門雷達</h1>
-        <p>直接連動台股交易資料庫，獲取即時成交資訊</p>
-        <button class="btn-scan" onclick="startScanner()">🚀 重新載入即時榜單</button>
-        <div id="status" class="status">準備就緒</div>
-    </div>
-    <div id="results" class="grid"></div>
+<div class="box">
+    <h1>🇹🇼 台股診斷雷達</h1>
+    <p>如果顯示連線錯誤，請查看下方的綠色診斷文字</p>
+    <button class="btn" onclick="startScan()">🚀 啟動連線測試</button>
+    <div id="status" style="margin-top:15px;">等待指令...</div>
+    <div id="debug" class="debug-log"></div>
 </div>
 
-<script>
-const myProxy = "https://script.google.com/macros/s/AKfycbylnE36bZRX_pkbtxVrgMnRrtcOeLQGZBEx_r7Cr6bgc7Zrcg7gZxZBA2y2mJv79LeQ/exec";
+<div id="results" class="grid"></div>
 
-async function startScanner() {
-    const results = document.getElementById('results');
+<script>
+// !!! 請在此處填入你「重新部署」後的網址 !!!
+const myProxy = "https://script.google.com/macros/s/AKfycbyTPkVDP9U1aOs_WJnEY7t9axOArILB4hjVGLzUmw33QBHqDhuvpnPa-ykF9qH-zbjs/exec";
+
+async function startScan() {
     const status = document.getElementById('status');
-    results.innerHTML = '';
-    status.innerText = "🌐 正在從台股資料庫檢索即時數據...";
+    const debug = document.getElementById('debug');
+    const results = document.getElementById('results');
+    
+    status.innerText = "正在連線私人通道...";
+    debug.style.display = "block";
+    debug.innerText = "系統日誌：開始連線至 " + myProxy.substring(0, 40) + "...";
+    results.innerHTML = "";
 
     try {
-        // 使用特定的篩選器 ID：day_gainers_taiwan 或 most_actives
-        // 這裡嘗試抓取成交量最活耀的標的
-        const hotUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=day_gainers_taiwan&count=50";
+        // 使用更穩定的 Yahoo 台股活躍榜接口
+        const target = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_actives&count=50";
+        const fetchUrl = `${myProxy}?url=${encodeURIComponent(target)}`;
         
-        const response = await fetch(`${myProxy}?url=${encodeURIComponent(hotUrl)}`);
-        const rawData = await response.json();
+        const response = await fetch(fetchUrl);
+        const text = await response.text();
         
-        const activeStocks = rawData.finance.result[0].quotes;
+        debug.innerText += "\n系統日誌：收到回應，長度為 " + text.length;
 
-        if(!activeStocks || activeStocks.length === 0) {
-            // 如果 day_gainers 沒資料，換一個備用接口（熱門榜）
-            status.innerText = "🔄 切換至備用掃描頻道...";
-            const backupUrl = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=most_actives&count=100";
-            const bRes = await fetch(`${myProxy}?url=${encodeURIComponent(backupUrl)}`);
-            const bData = await bRes.json();
-            const filtered = bData.finance.result[0].quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
-            renderStocks(filtered);
-        } else {
-            renderStocks(activeStocks);
+        // 如果回傳的是 HTML 而不是 JSON，通常是 Google 要求登入
+        if (text.includes("<!DOCTYPE html>") || text.includes("login")) {
+            status.innerText = "❌ 連線失敗：權限不足";
+            debug.innerText += "\n\n⚠️ 錯誤診斷：Google Script 要求登入。請確認部署時「誰可以存取」是否真的選為「所有人(Anyone)」，而不是「任何擁有 Google 帳戶的人」。";
+            return;
         }
 
+        const data = JSON.parse(text);
+        const stocks = data.finance.result[0].quotes.filter(q => q.symbol.endsWith('.TW') || q.symbol.endsWith('.TWO'));
+
+        if (stocks.length === 0) {
+            status.innerText = "⚠️ 成功連線但查無台股資料";
+            debug.innerText += "\n系統日誌：Yahoo 榜單目前不含台股，建議於台股交易時間測試。";
+            return;
+        }
+
+        status.innerText = `✅ 成功！找到 ${stocks.length} 檔台股`;
+        stocks.forEach(s => {
+            const isUp = s.regularMarketChangePercent >= 0;
+            results.innerHTML += `
+                <div class="card">
+                    <b style="color:var(--accent)">${s.symbol.split('.')[0]}</b> ${s.shortName || ''}<br>
+                    <div style="font-size:1.5rem; margin:10px 0;" class="${isUp ? 'up' : 'down'}">
+                        ${s.regularMarketPrice.toFixed(2)} (${isUp ? '+' : ''}${s.regularMarketChangePercent.toFixed(2)}%)
+                    </div>
+                    <small>量：${s.regularMarketVolume}</small>
+                </div>`;
+        });
+
     } catch (err) {
-        status.innerText = "❌ 連線異常，請確認私人通道部署狀態。";
+        status.innerText = "❌ 連線程序崩潰";
+        debug.innerText += "\n\n致命錯誤內容：\n" + err.toString();
     }
-}
-
-function renderStocks(stocks) {
-    const results = document.getElementById('results');
-    const status = document.getElementById('status');
-    
-    if(!stocks || stocks.length === 0) {
-        status.innerText = "⚠️ 暫無數據，請確認此時是否為交易時間。";
-        return;
-    }
-
-    status.innerText = `✅ 成功獲取 ${stocks.length} 檔即時標的。`;
-    
-    stocks.forEach(stock => {
-        const isUp = stock.regularMarketChangePercent >= 0;
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-            <div>
-                <span class="stock-id">${stock.symbol.split('.')[0]}</span>
-                <span style="color:#8b949e; font-size:0.9rem; margin-left:8px;">${stock.shortName || ''}</span>
-            </div>
-            <div class="price-area" style="color: ${isUp ? 'var(--tw-red)' : 'var(--tw-green)'}">
-                ${(stock.regularMarketPrice || 0).toFixed(2)}
-                <span class="change-tag ${isUp ? 'tag-up' : 'tag-down'}">
-                    ${isUp ? '▲' : '▼'} ${Math.abs(stock.regularMarketChangePercent || 0).toFixed(2)}%
-                </span>
-            </div>
-            <div style="font-size:0.85rem; color:#8b949e;">
-                成交量：${formatVol(stock.regularMarketVolume)}
-            </div>
-        `;
-        results.appendChild(card);
-    });
-}
-
-function formatVol(vol) {
-    if (!vol) return "---";
-    return vol > 10000 ? (vol / 1000).toFixed(0) + " 張" : vol;
 }
 </script>
 </body>
