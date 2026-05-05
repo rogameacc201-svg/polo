@@ -3,20 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股即時強勢雷達</title>
+    <title>台股即時成交量雷達 - 終極穩定版</title>
     <style>
-        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --primary: #58a6ff; --up: #f85149; --down: #3fb950; --text: #c9d1d9; --gray: #8b949e; }
-        * { box-sizing: border-box; }
-        body { font-family: sans-serif; background-color: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        :root {
+            --bg: #0d1117;
+            --card: #161b22;
+            --border: #30363d;
+            --primary: #58a6ff;
+            --up: #f85149;
+            --down: #3fb950;
+            --text: #c9d1d9;
+            --gray: #8b949e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
         .container { width: 100%; max-width: 1000px; }
-        .header { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; }
-        .btn-scan { background-color: #238636; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 1.1rem; cursor: pointer; font-weight: bold; }
-        .btn-scan:hover { background-color: #2ea043; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 15px; border-left: 5px solid #444; }
-        .symbol { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
-        .price { font-size: 2rem; font-weight: 900; margin: 10px 0; }
-        .status-msg { margin-top: 10px; color: var(--gray); font-size: 0.9rem; }
+
+        .header {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.6rem; }
+        p { color: var(--gray); font-size: 0.9rem; margin-bottom: 20px; }
+
+        .btn-scan {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-scan:hover { background-color: #2ea043; transform: translateY(-2px); }
+        .btn-scan:active { transform: translateY(0); }
+
+        .status-bar {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: var(--gray);
+            min-height: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            border-left: 5px solid #444;
+            transition: 0.2s;
+        }
+
+        .card:hover { border-color: var(--primary); }
+
+        .stock-id { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+        .stock-name { font-size: 0.9rem; color: var(--gray); }
+        
+        .price-box {
+            display: flex;
+            align-items: baseline;
+            margin: 12px 0;
+        }
+
+        .price { font-size: 2.2rem; font-weight: 900; }
+        .pct { margin-left: 10px; font-size: 1.1rem; font-weight: bold; }
+
+        .info-footer {
+            font-size: 0.85rem;
+            color: var(--gray);
+            border-top: 1px solid #30363d;
+            padding-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
@@ -24,72 +108,84 @@
 <div class="container">
     <div class="header">
         <h1>📊 台股即時成交量雷達</h1>
-        <button class="btn-scan" id="mainBtn">⚡ 執行即時掃描</button>
-        <div id="status" class="status-msg">等待指令中...</div>
+        <p>自動掃描 Yahoo 股市熱門標的，若 API 限制則顯示保底權值股</p>
+        <button class="btn-scan" id="btnScan">⚡ 執行動態掃描</button>
+        <div id="status" class="status-bar">準備就緒</div>
     </div>
+
     <div id="results" class="grid"></div>
 </div>
 
 <script>
-    // ⚠️ 請務必在此處填入你的 GAS 網址 (記得保留引號)
+    // ⚠️ 填入你最新的 GAS 網址 (部署時請務必選「新版本」)
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyZr1LgjVdnm-jBQXeXg1mwIn3IwnI0L8qo6gsfTlgVFDhMIwdy6pqNKqxs5TUqlOE/exec";
 
-    // 使用更穩定的監聽器寫法，避免 onclick 找不到函數
-    document.getElementById('mainBtn').addEventListener('click', async function() {
-        const resultsContainer = document.getElementById('results');
-        const statusDisplay = document.getElementById('status');
+    const btn = document.getElementById('btnScan');
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
 
+    btn.addEventListener('click', async () => {
         if (GAS_URL.includes("你的")) {
-            alert("請先在代碼中填入你的 GAS 網址！");
+            alert("請先修改代碼填入 GAS 網址");
             return;
         }
 
-        resultsContainer.innerHTML = "";
-        statusDisplay.innerText = "⏳ 正在連線至雲端引擎...";
-        statusDisplay.style.color = "var(--gray)";
+        // 初始化
+        results.innerHTML = "";
+        status.innerText = "⏳ 正在請求雲端數據...";
+        status.style.color = "var(--gray)";
 
         try {
-            const response = await fetch(GAS_URL);
+            // 加入時間戳記避免讀取舊快取
+            const timestamp = new Date().getTime();
+            const target = `${GAS_URL}${GAS_URL.includes('?') ? '&' : '?'}t=${timestamp}`;
+            
+            const response = await fetch(target);
+            if (!response.ok) throw new Error("網路請求失敗");
+            
             const data = await response.json();
-
+            
             if (data.error) throw new Error(data.error);
 
             const list = data.result || [];
+            
             if (list.length === 0) {
-                statusDisplay.innerText = "⚠️ 抓取成功但無資料 (可能非交易時間)";
+                status.innerText = "⚠️ 抓取成功但暫無資料 (可能是 Yahoo 接口變動或非交易時段)";
                 return;
             }
 
-            list.forEach(stock => {
-                const changePercent = stock.regularMarketChangePercent || 0;
-                const isUp = changePercent >= 0;
+            list.forEach(s => {
+                const change = s.regularMarketChangePercent || 0;
+                const isUp = change >= 0;
                 const color = isUp ? "var(--up)" : "var(--down)";
 
                 const card = document.createElement('div');
                 card.className = "card";
                 card.style.borderLeftColor = color;
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between">
-                        <span class="symbol">${stock.symbol.split('.')[0]}</span>
-                        <span style="color:var(--gray)">${stock.shortName || ''}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center">
+                        <span class="stock-id">${(s.symbol || "").split('.')[0]}</span>
+                        <span class="stock-name">${s.shortName || ''}</span>
                     </div>
-                    <div class="price" style="color:${color}">
-                        ${(stock.regularMarketPrice || 0).toFixed(2)}
-                        <span style="font-size:1rem">${isUp ? '▲' : '▼'}${Math.abs(changePercent).toFixed(2)}%</span>
+                    <div class="price-box" style="color: ${color}">
+                        <div class="price">${(s.regularMarketPrice || 0).toFixed(2)}</div>
+                        <div class="pct">${isUp ? '▲' : '▼'}${Math.abs(change).toFixed(2)}%</div>
                     </div>
-                    <div style="font-size:0.8rem; color:var(--gray)">
-                        量：${Math.floor((stock.regularMarketVolume || 0)/1000).toLocaleString()} 張
+                    <div class="info-footer">
+                        <span>成交量: ${Math.floor((s.regularMarketVolume || 0) / 1000).toLocaleString()} 張</span>
+                        <span>昨收: ${(s.regularMarketPreviousClose || 0).toFixed(2)}</span>
                     </div>
                 `;
-                resultsContainer.appendChild(card);
+                results.appendChild(card);
             });
 
-            statusDisplay.innerText = `✅ 掃描完成 (${new Date().toLocaleTimeString()})`;
-            statusDisplay.style.color = "var(--primary)";
+            status.innerText = `✅ 更新完成！共 ${list.length} 檔標的 (${new Date().toLocaleTimeString()})`;
+            status.style.color = "var(--primary)";
 
         } catch (err) {
-            statusDisplay.innerText = "❌ 錯誤：" + err.message;
-            statusDisplay.style.color = "var(--up)";
+            status.innerText = "❌ 發生錯誤：" + err.message;
+            status.style.color = "var(--up)";
+            console.error(err);
         }
     });
 </script>
