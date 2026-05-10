@@ -2,90 +2,51 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>賓果賓果即時監測 - 強大解析版</title>
+    <title>簡易 YouTube 播放器</title>
     <style>
-        body { font-family: sans-serif; background: #2c3e50; color: #fff; padding: 20px; text-align: center; }
-        .container { background: #fff; color: #333; border-radius: 15px; padding: 20px; max-width: 1000px; margin: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; margin-bottom: 15px; padding-bottom: 10px; }
-        #timer { font-size: 24px; color: #e74c3c; font-weight: bold; }
-        #data-container { overflow-x: auto; }
-        /* 樣式強制修正 */
-        table { width: 100% !important; border-collapse: collapse; margin: 10px 0; }
-        td, th { border: 1px solid #ddd !important; padding: 10px !important; text-align: center !important; font-weight: bold !important; }
-        img { width: 28px !important; height: 28px !important; margin: 2px; }
-        .error { color: #e74c3c; padding: 20px; }
-        .loading { color: #3498db; padding: 20px; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .input-group { margin-bottom: 20px; }
+        input { padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; cursor: pointer; background: #ff0000; color: white; border: none; border-radius: 4px; }
+        .video-container { width: 100%; max-width: 800px; aspect-ratio: 16 / 9; }
+        iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h2 style="margin:0;">BINGO BINGO 即時開獎</h2>
-        <div>下次更新：<span id="timer">60</span> 秒</div>
+    <h2>我的網頁播放器</h2>
+
+    <div class="input-group">
+        <input type="text" id="videoUrl" placeholder="請貼上 YouTube 影片連結...">
+        <button onclick="playVideo()">播放影片</button>
     </div>
-    <div id="data-container">
-        <div class="loading">正在破解資料結構中...</div>
+
+    <div class="video-container">
+        <!-- 播放器會顯示在這裡 -->
+        <iframe id="player" src="" allowfullscreen></iframe>
     </div>
-</div>
 
-<script>
-    let count = 60;
-    
-    async function updateData() {
-        const target = "https://www.pilio.idv.tw/bingo/list.asp?auto=1";
-        const proxy = `https://corsproxy.io/?${encodeURIComponent(target)}`;
+    <script>
+        function playVideo() {
+            const urlInput = document.getElementById('videoUrl').value;
+            const videoId = extractVideoID(urlInput);
 
-        try {
-            const res = await fetch(proxy);
-            const buffer = await res.arrayBuffer();
-            const html = new TextDecoder('big5').decode(buffer);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // --- 強化搜尋邏輯 ---
-            const allTables = Array.from(doc.querySelectorAll('table'));
-            
-            // 尋找包含最多圖片(球號)的那個表格，通常就是我們要的
-            let bestTable = allTables.reduce((prev, curr) => {
-                return (curr.querySelectorAll('img').length > (prev ? prev.querySelectorAll('img').length : 0)) ? curr : prev;
-            }, null);
-
-            if (bestTable) {
-                // 修正圖片與移除連結
-                bestTable.querySelectorAll('img').forEach(img => {
-                    let src = img.getAttribute('src');
-                    if (src && !src.startsWith('http')) img.src = "https://www.pilio.idv.tw/bingo/" + src;
-                });
-                bestTable.querySelectorAll('a').forEach(a => a.removeAttribute('href'));
-
-                document.getElementById('data-container').innerHTML = "";
-                document.getElementById('data-container').appendChild(bestTable);
+            if (videoId) {
+                const player = document.getElementById('player');
+                // 更新 iframe 的來源網址
+                player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
             } else {
-                // 如果找不到圖片表格，嘗試找包含關鍵字的表格
-                const backupTable = allTables.find(t => t.innerText.includes('期別') && t.rows.length > 5);
-                if (backupTable) {
-                    document.getElementById('data-container').innerHTML = backupTable.outerHTML;
-                } else {
-                    document.getElementById('data-container').innerHTML = "<div class='error'>偵測失敗，請確認該網站目前是否正常運作。</div>";
-                }
+                alert("請輸入有效的 YouTube 網址");
             }
-        } catch (e) {
-            document.getElementById('data-container').innerHTML = "<div class='error'>連線中斷或代理伺服器忙碌中。</div>";
         }
-    }
 
-    setInterval(() => {
-        count--;
-        document.getElementById('timer').innerText = count;
-        if (count <= 0) {
-            count = 60;
-            updateData();
+        // 解析網址以獲取影片 ID 的函式
+        function extractVideoID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
         }
-    }, 1000);
-
-    updateData();
-</script>
+    </script>
 
 </body>
 </html>
