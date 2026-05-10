@@ -15,34 +15,40 @@
             font-family: "Microsoft JhengHei", Arial, sans-serif;
         }
 
-        /* 控制列：增加過渡動畫 */
-        .controls {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 10;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* 當播放時，將控制列向上推移隱藏 */
-        .controls.hidden {
-            transform: translateY(-100%);
-        }
-
-        /* 偵測滑鼠靠近上方時，自動顯現控制列 */
+        /* 偵測區：當滑鼠移到上方 50px 範圍內，顯示控制列 */
         .hover-trigger {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 50px;
-            z-index: 11;
+            height: 60px; /* 觸發範圍 */
+            z-index: 20; /* 確保在最上層偵測滑鼠 */
+        }
+
+        /* 控制列 */
+        .controls {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 21; /* 層級需高於觸發區，才能點到輸入框 */
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.4s ease-in-out;
+            transform: translateY(0); /* 預設顯示 */
+        }
+
+        /* 播放時隱藏 */
+        .controls.hidden {
+            transform: translateY(-100%);
+        }
+
+        /* 當滑鼠移到觸發區或控制列本身時，顯示控制列 */
+        .hover-trigger:hover + .controls, .controls:hover {
+            transform: translateY(0);
         }
 
         input {
@@ -55,6 +61,8 @@
             border-radius: 4px;
             outline: none;
         }
+
+        input:focus { border-color: #ff0000; }
 
         button {
             padding: 10px 20px;
@@ -74,6 +82,7 @@
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 1;
         }
 
         iframe {
@@ -85,14 +94,16 @@
 </head>
 <body>
 
-    <!-- 隱形觸發區：滑鼠移到最上方時顯示輸入框 -->
-    <div class="hover-trigger" onmouseover="showControls()"></div>
+    <!-- 1. 偵測區 -->
+    <div class="hover-trigger"></div>
 
+    <!-- 2. 控制列 -->
     <div class="controls" id="controlBar">
-        <input type="text" id="videoUrl" placeholder="在此貼上 YouTube 連結並按下 Enter...">
+        <input type="text" id="videoUrl" placeholder="貼上網址並按 Enter 播放...">
         <button onclick="playVideo()">播放</button>
     </div>
 
+    <!-- 3. 影片區 -->
     <div class="video-wrapper">
         <iframe id="player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
     </div>
@@ -106,22 +117,16 @@
 
             if (videoId) {
                 const player = document.getElementById('player');
-                // 加入參數：autoplay(自動播放), modestbranding(簡約標誌), iv_load_policy(關閉註解), rel(關聯影片)
+                // 嵌入網址 + 自動播放與介面優化參數
                 player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&iv_load_policy=3&rel=0`;
                 
-                // 播放後縮起輸入欄
-                hideControls();
+                // 延遲一秒後自動縮起（給使用者一點反應時間）
+                setTimeout(() => {
+                    controlBar.classList.add('hidden');
+                }, 1000);
             } else {
-                alert("網址格式不正確！");
+                alert("請確認 YouTube 網址是否正確！");
             }
-        }
-
-        function hideControls() {
-            controlBar.classList.add('hidden');
-        }
-
-        function showControls() {
-            controlBar.classList.remove('hidden');
         }
 
         function extractVideoID(url) {
@@ -130,6 +135,7 @@
             return (match && match[2].length === 11) ? match[2] : null;
         }
 
+        // 監聽 Enter 鍵
         urlInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') playVideo();
         });
