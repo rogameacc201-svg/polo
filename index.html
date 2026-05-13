@@ -2,95 +2,82 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bingo Bingo 快速看板</title>
     <style>
-        body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { background: #1e293b; border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 480px; text-align: center; border: 1px solid #334155; }
-        h1 { color: #fbbf24; margin-bottom: 10px; font-size: 24px; letter-spacing: 2px; }
-        .update-time { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
-        .ball-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; justify-items: center; }
-        .ball { width: 50px; height: 50px; line-height: 50px; background: radial-gradient(circle at 30% 30%, #f87171, #991b1b); color: white; border-radius: 50%; font-weight: bold; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid #7f1d1d; }
-        .ball.super { background: radial-gradient(circle at 30% 30%, #fbbf24, #92400e); color: #451a03; border: 1px solid #78350f; }
-        .loader { color: #38bdf8; font-weight: bold; margin: 20px 0; }
-        .refresh-btn { margin-top: 25px; padding: 10px 24px; background: #38bdf8; border: none; color: #0f172a; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .refresh-btn:hover { background: #7dd3fc; transform: scale(1.05); }
+        body { font-family: sans-serif; background: #111827; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .box { background: #1f2937; border-radius: 15px; padding: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h2 { color: #fbbf24; margin-bottom: 5px; }
+        .time { color: #9ca3af; font-size: 12px; margin-bottom: 20px; }
+        .balls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .ball { width: 45px; height: 45px; line-height: 45px; background: #ef4444; border-radius: 50%; font-weight: bold; font-size: 18px; box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3); }
+        .ball.blue { background: #3b82f6; }
+        .msg { margin-top: 15px; color: #60a5fa; font-size: 14px; min-height: 20px; }
+        button { margin-top: 15px; padding: 8px 20px; border-radius: 5px; border: none; cursor: pointer; background: #374151; color: white; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>BINGO BINGO 實時號碼</h1>
-    <div id="update-time" class="update-time">連線中...</div>
-    
-    <div id="loader" class="loader">正在讀取最新資料...</div>
-    <div id="ball-container" class="ball-grid"></div>
-    
-    <button class="refresh-btn" onclick="getBingoData()">手動刷新</button>
-    <div style="margin-top: 15px; font-size: 11px; color: #475569;">※ 每 60 秒自動更新一次</div>
+<div class="box">
+    <h2>BINGO BINGO 號碼</h2>
+    <div id="time" class="time">連線中...</div>
+    <div id="balls" class="balls"></div>
+    <div id="msg" class="msg">正在取得最新獎號...</div>
+    <button onclick="update()">點擊更新</button>
 </div>
 
 <script>
-    async function getBingoData() {
-        const loader = document.getElementById('loader');
-        const container = document.getElementById('ball-container');
-        const timeDisplay = document.getElementById('update-time');
+    async function update() {
+        const msg = document.getElementById('msg');
+        const balls = document.getElementById('balls');
+        const time = document.getElementById('time');
         
-        loader.style.display = 'block';
-        loader.innerText = '正在穿透代理連線中...';
-
-        // 使用較穩定的 CORS 代理與 1758 樂透網資料源
+        msg.innerText = "讀取中...";
+        
+        // 使用一個較少被封鎖的公共 API 來源，抓取開獎彙整網
+        // 這裡抓取一個結構極簡的備用來源
         const proxy = "https://api.allorigins.win/get?url=";
-        const target = encodeURIComponent("https://www.17588.com.tw/bingo/bingo_list.asp");
+        const target = encodeURIComponent("https://www.lotto-8.com/list_bingobingo.asp");
 
         try {
-            const response = await fetch(proxy + target + "&cache=" + Date.now());
-            const data = await response.json();
+            const res = await fetch(proxy + target);
+            const data = await res.json();
             const html = data.contents;
-
-            // 針對 1758 網頁結構，抓取特定 class 或 td 內的數字
-            const numbers = [];
-            const regex = /<td[^>]*class="ball_red[^>]*>(\d+)<\/td>/g;
+            
+            // 抓取號碼 (ball_red 標籤內的兩位數字)
+            const regex = /ball_red">(\d{2})<\/td>/g;
             let match;
-
+            let nums = [];
+            
             while ((match = regex.exec(html)) !== null) {
-                numbers.push(match[1]);
-                if (numbers.length >= 20) break;
+                nums.push(match[1]);
+                if (nums.length >= 20) break;
             }
 
-            // 嘗試抓取超級獎號 (通常是不同的 class)
-            const superRegex = /<td[^>]*class="ball_blue[^>]*>(\d+)<\/td>/;
-            const superMatch = superRegex.exec(html);
-            if (superMatch) numbers.push(superMatch[1]);
+            // 抓取超級獎號
+            const superMatch = /ball_blue">(\d{2})<\/td>/.exec(html);
+            if (superMatch) nums.push(superMatch[1]);
 
-            if (numbers.length > 0) {
-                loader.style.display = 'none';
-                container.innerHTML = '';
-                timeDisplay.innerText = "最後更新：" + new Date().toLocaleTimeString();
-                
-                numbers.forEach((num, index) => {
+            if (nums.length > 0) {
+                balls.innerHTML = '';
+                nums.forEach((n, i) => {
                     const div = document.createElement('div');
-                    div.className = 'ball';
-                    // 最後一個數字設為超級獎號
-                    if (index === numbers.length - 1 && numbers.length > 20) {
-                        div.classList.add('super');
-                    }
-                    div.innerText = num;
-                    container.appendChild(div);
+                    div.className = i === 20 ? 'ball blue' : 'ball';
+                    div.innerText = n;
+                    balls.appendChild(div);
                 });
+                msg.innerText = "更新成功！";
+                time.innerText = "資料來源時間：" + new Date().toLocaleTimeString();
             } else {
-                throw new Error('暫時抓不到數字，請稍後再試');
+                msg.innerText = "目前網站維護中，請稍後重試。";
             }
-        } catch (err) {
-            console.error(err);
-            loader.innerText = '抓取失敗：' + err.message;
+        } catch (e) {
+            msg.innerText = "連線失敗，請檢查網路。";
         }
     }
 
-    // 初始執行
-    getBingoData();
-    // 自動循環
-    setInterval(getBingoData, 60000);
+    // 初始化與每分鐘自動更新
+    update();
+    setInterval(update, 60000);
 </script>
 
 </body>
