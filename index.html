@@ -3,72 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Bingo 即時開獎</title>
+    <title>Bingo Bingo 即時看板</title>
     <style>
-        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #1a1a2e; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .card { background: #16213e; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; border: 1px solid #0f3460; }
-        h1 { color: #e94560; margin-bottom: 5px; font-size: 24px; }
-        .time { font-size: 14px; color: #95a5a6; margin-bottom: 20px; }
-        .ball-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; justify-items: center; }
-        .ball { width: 50px; height: 50px; line-height: 50px; background: radial-gradient(circle at 30% 30%, #ff4d4d, #b30000); color: white; border-radius: 50%; font-weight: bold; font-size: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.3s; }
-        .ball:hover { transform: scale(1.1); }
-        .ball.super { background: radial-gradient(circle at 30% 30%, #ffd700, #b8860b); color: #333; }
-        .status { margin-top: 20px; font-size: 12px; color: #4ecca3; }
-        .btn-refresh { margin-top: 15px; padding: 8px 20px; background: #e94560; border: none; color: white; border-radius: 5px; cursor: pointer; }
-        #loader { font-size: 18px; color: #3498db; margin: 20px 0; }
+        body { font-family: sans-serif; background: #0f172a; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: #1e293b; border-radius: 15px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 450px; text-align: center; }
+        h1 { color: #f59e0b; margin-top: 0; }
+        .ball-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 20px; }
+        .ball { width: 45px; height: 45px; line-height: 45px; background: #ef4444; color: white; border-radius: 50%; font-weight: bold; font-size: 18px; box-shadow: inset -3px -3px 5px rgba(0,0,0,0.3); }
+        .ball.special { background: #3b82f6; } /* 假設最後一個是特別號 */
+        .info { font-size: 12px; color: #94a3b8; margin-top: 15px; }
+        .loader { color: #60a5fa; margin: 20px 0; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>Bingo Bingo 即時開獎</h1>
-    <div id="time" class="time">正在連接伺服器...</div>
-    
-    <div id="loader">連線中，請稍候...</div>
-    <div id="bingo-balls" class="ball-container"></div>
-    
-    <button class="btn-refresh" onclick="fetchData()">手動更新</button>
-    <div id="status" class="status">自動更新已啟動 (每 30 秒)</div>
+<div class="container">
+    <h1>Bingo Bingo 實時號碼</h1>
+    <div id="loader">連線抓取中...</div>
+    <div id="balls" class="ball-grid"></div>
+    <div class="info" id="update-time"></div>
+    <button onclick="fetchNumbers()" style="margin-top:20px; padding:8px 16px; cursor:pointer;">手動更新</button>
 </div>
 
 <script>
-    // 【重要】請將下方網址替換成你在 Google Apps Script 部署得到的網址
-    const apiURL = 'https://script.google.com/macros/s/AKfycbzHIFXQB6qoUfUih7AewPorVagWZ1OcUcPLw8qjowPoRGRH60IKg-mI0zybzEOYqtWh-Q/exec';
-
-    async function fetchData() {
-        const ballContainer = document.getElementById('bingo-balls');
+    async function fetchNumbers() {
         const loader = document.getElementById('loader');
-        const timeLabel = document.getElementById('time');
+        const ballGrid = document.getElementById('balls');
+        const timeLabel = document.getElementById('update-time');
+        
+        loader.style.display = 'block';
+        loader.innerText = '正在穿透防火牆...';
+
+        // 我們改用另一個免權限的 CORS 代理，並抓取一個結構超簡單的備用來源
+        const proxy = "https://api.allorigins.win/get?url=";
+        const target = encodeURIComponent("https://www.lotto-8.com/list_bingobingo.asp");
 
         try {
-            const response = await fetch(apiURL);
+            const response = await fetch(proxy + target);
+            if (!response.ok) throw new Error('代理伺服器異常');
+            
             const data = await response.json();
+            const html = data.contents;
+            
+            // 使用最原始的數字匹配法 (匹配 ball_red 類別後的數字)
+            const regex = /ball_red">(\d{2})<\/td>/g;
+            let match;
+            let numbers = [];
+            
+            while ((match = regex.exec(html)) !== null) {
+                numbers.push(match[1]);
+                if (numbers.length >= 20) break;
+            }
 
-            if (data.success && data.numbers.length > 0) {
+            if (numbers.length > 0) {
                 loader.style.display = 'none';
-                ballContainer.innerHTML = '';
-                timeLabel.innerText = '更新時間：' + data.time;
-
-                data.numbers.forEach((num, index) => {
+                ballGrid.innerHTML = '';
+                numbers.forEach((num, idx) => {
                     const div = document.createElement('div');
                     div.className = 'ball';
-                    // 假設最後一個是超級獎號
-                    if (index === data.numbers.length - 1) div.classList.add('super');
                     div.innerText = num;
-                    ballContainer.appendChild(div);
+                    ballGrid.appendChild(div);
                 });
+                timeLabel.innerText = "最後更新：" + new Date().toLocaleTimeString();
             } else {
-                loader.innerText = '抓取不到資料，請檢查 GAS 設定';
+                loader.innerText = "抓取成功但無資料，請稍後再試";
             }
-        } catch (error) {
-            loader.innerText = '連線失敗：' + error.message;
+        } catch (err) {
+            loader.innerText = "連線失敗：" + err.message;
         }
     }
 
-    // 初始抓取
-    fetchData();
-    // 設定每 30 秒自動更新一次
-    setInterval(fetchData, 30000);
+    // 啟動與自動循環
+    fetchNumbers();
+    setInterval(fetchNumbers, 60000); // 每一分鐘更新一次
 </script>
 
 </body>
