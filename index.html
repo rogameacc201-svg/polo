@@ -1,145 +1,75 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>極簡全螢幕播放器</title>
+    <title>Bingo Bingo 即時開獎</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            overflow: hidden;
-            font-family: "Microsoft JhengHei", Arial, sans-serif;
-        }
-
-        /* 偵測區：當滑鼠移到上方 50px 範圍內，顯示控制列 */
-        .hover-trigger {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 60px; /* 觸發範圍 */
-            z-index: 20; /* 確保在最上層偵測滑鼠 */
-        }
-
-        /* 控制列 */
-        .controls {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 21; /* 層級需高於觸發區，才能點到輸入框 */
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            transition: transform 0.4s ease-in-out;
-            transform: translateY(0); /* 預設顯示 */
-        }
-
-        /* 播放時隱藏 */
-        .controls.hidden {
-            transform: translateY(-100%);
-        }
-
-        /* 當滑鼠移到觸發區或控制列本身時，顯示控制列 */
-        .hover-trigger:hover + .controls, .controls:hover {
-            transform: translateY(0);
-        }
-
-        input {
-            padding: 12px;
-            width: 60%;
-            max-width: 500px;
-            border: 1px solid #444;
-            background: #222;
-            color: #fff;
-            border-radius: 4px;
-            outline: none;
-        }
-
-        input:focus { border-color: #ff0000; }
-
-        button {
-            padding: 10px 20px;
-            cursor: pointer;
-            background: #ff0000;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-        }
-
-        button:hover { background: #cc0000; }
-
-        .video-wrapper {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #1a1a2e; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: #16213e; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 500px; text-align: center; border: 1px solid #0f3460; }
+        h1 { color: #e94560; margin-bottom: 5px; font-size: 24px; }
+        .time { font-size: 14px; color: #95a5a6; margin-bottom: 20px; }
+        .ball-container { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; justify-items: center; }
+        .ball { width: 50px; height: 50px; line-height: 50px; background: radial-gradient(circle at 30% 30%, #ff4d4d, #b30000); color: white; border-radius: 50%; font-weight: bold; font-size: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: transform 0.3s; }
+        .ball:hover { transform: scale(1.1); }
+        .ball.super { background: radial-gradient(circle at 30% 30%, #ffd700, #b8860b); color: #333; }
+        .status { margin-top: 20px; font-size: 12px; color: #4ecca3; }
+        .btn-refresh { margin-top: 15px; padding: 8px 20px; background: #e94560; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        #loader { font-size: 18px; color: #3498db; margin: 20px 0; }
     </style>
 </head>
 <body>
 
-    <!-- 1. 偵測區 -->
-    <div class="hover-trigger"></div>
+<div class="card">
+    <h1>Bingo Bingo 即時開獎</h1>
+    <div id="time" class="time">正在連接伺服器...</div>
+    
+    <div id="loader">連線中，請稍候...</div>
+    <div id="bingo-balls" class="ball-container"></div>
+    
+    <button class="btn-refresh" onclick="fetchData()">手動更新</button>
+    <div id="status" class="status">自動更新已啟動 (每 30 秒)</div>
+</div>
 
-    <!-- 2. 控制列 -->
-    <div class="controls" id="controlBar">
-        <input type="text" id="videoUrl" placeholder="貼上網址並按 Enter 播放...">
-        <button onclick="playVideo()">播放</button>
-    </div>
+<script>
+    // 【重要】請將下方網址替換成你在 Google Apps Script 部署得到的網址
+    const apiURL = 'https://script.google.com/macros/s/AKfycbwoknT9PabJnAsss0nI1s7b_YlkYt-3emXEoJd7BowV-7lj3gfzIFj83sm7TzIVaJKuzA/exec';
 
-    <!-- 3. 影片區 -->
-    <div class="video-wrapper">
-        <iframe id="player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-    </div>
+    async function fetchData() {
+        const ballContainer = document.getElementById('bingo-balls');
+        const loader = document.getElementById('loader');
+        const timeLabel = document.getElementById('time');
 
-    <script>
-        const controlBar = document.getElementById('controlBar');
-        const urlInput = document.getElementById('videoUrl');
+        try {
+            const response = await fetch(apiURL);
+            const data = await response.json();
 
-        function playVideo() {
-            const videoId = extractVideoID(urlInput.value);
+            if (data.success && data.numbers.length > 0) {
+                loader.style.display = 'none';
+                ballContainer.innerHTML = '';
+                timeLabel.innerText = '更新時間：' + data.time;
 
-            if (videoId) {
-                const player = document.getElementById('player');
-                // 嵌入網址 + 自動播放與介面優化參數
-                player.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&iv_load_policy=3&rel=0`;
-                
-                // 延遲一秒後自動縮起（給使用者一點反應時間）
-                setTimeout(() => {
-                    controlBar.classList.add('hidden');
-                }, 1000);
+                data.numbers.forEach((num, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'ball';
+                    // 假設最後一個是超級獎號
+                    if (index === data.numbers.length - 1) div.classList.add('super');
+                    div.innerText = num;
+                    ballContainer.appendChild(div);
+                });
             } else {
-                alert("請確認 YouTube 網址是否正確！");
+                loader.innerText = '抓取不到資料，請檢查 GAS 設定';
             }
+        } catch (error) {
+            loader.innerText = '連線失敗：' + error.message;
         }
+    }
 
-        function extractVideoID(url) {
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : null;
-        }
-
-        // 監聽 Enter 鍵
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') playVideo();
-        });
-    </script>
+    // 初始抓取
+    fetchData();
+    // 設定每 30 秒自動更新一次
+    setInterval(fetchData, 30000);
+</script>
 
 </body>
 </html>
