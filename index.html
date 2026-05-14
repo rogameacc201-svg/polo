@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全功能抽獎機 - 簡潔版</title>
+    <!-- 這裡修改通訊軟體抓取的預覽標題 -->
+    <title>抽獎機</title>
     <style>
         :root {
             --primary-gold: #ffd700;
@@ -154,7 +155,6 @@
             justify-content: center;
         }
 
-        /* 霓虹邊框顏色 */
         .c1 { border-color: #ff5252; color: #ff5252; box-shadow: 0 0 8px rgba(255, 82, 82, 0.3); }
         .c2 { border-color: #448aff; color: #448aff; box-shadow: 0 0 8px rgba(68, 138, 255, 0.3); }
         .c3 { border-color: #66bb6a; color: #66bb6a; box-shadow: 0 0 8px rgba(102, 187, 106, 0.3); }
@@ -177,13 +177,13 @@
                 <input type="number" id="drawCount" value="20" min="1">
             </div>
         </div>
-        <button id="startBtn" onclick="startDraw()">啟動系統</button>
+        <button id="startBtn" onclick="startDraw()">啟動抽獎系統</button>
     </div>
 
     <div id="ball-container"></div>
 
     <div id="result-section" class="result-section">
-        <div class="result-title">━━ 最終結果排列 ━━</div>
+        <div class="result-title">━━ 最終抽獎結果 ━━</div>
         <div id="sorted-container"></div>
     </div>
 
@@ -200,44 +200,36 @@
             const drawCount = parseInt(drawCountInput.value);
 
             if (isNaN(maxPool) || isNaN(drawCount) || drawCount > maxPool || drawCount < 1) {
-                alert("請檢查輸入數值是否正確（抽出數量不可大於總數）");
+                alert("請檢查輸入數值是否正確");
                 return;
             }
 
-            // 初始化介面
             container.innerHTML = '';
             sortedContainer.innerHTML = '';
             resultSection.style.display = 'none';
             btn.disabled = true;
 
-            // 準備號碼池
             let pool = Array.from({length: maxPool}, (_, i) => i + 1);
             let results = [];
 
-            // 隨機抽籤
             for (let i = 0; i < drawCount; i++) {
                 const randomIndex = Math.floor(Math.random() * pool.length);
                 results.push(pool.splice(randomIndex, 1)[0]);
             }
 
-            // 顯示落下動畫
             for (let i = 0; i < results.length; i++) {
                 const box = document.createElement('div');
                 const colorClass = 'c' + (Math.floor(Math.random() * 5) + 1);
                 box.className = `box ${colorClass}`;
                 box.innerHTML = results[i];
-
                 container.appendChild(box);
                 
-                // 每次增加內容時檢查捲動
                 if (i % 3 === 0) {
                     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
                 }
-                
                 await new Promise(r => setTimeout(r, 120));
             }
 
-            // 顯示最終排序
             await new Promise(r => setTimeout(r, 500));
             const sortedResults = [...results].sort((a, b) => a - b);
             resultSection.style.display = 'block';
@@ -249,7 +241,6 @@
                 sortedContainer.appendChild(sBox);
                 await new Promise(r => setTimeout(r, 30));
             }
-
             btn.disabled = false;
         }
     </script>
