@@ -2,171 +2,164 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>抽獎機</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>全功能抽獎機 - 簡潔版</title>
     <style>
         :root {
             --primary-gold: #ffd700;
-            --bg-dark: #1a1a2e;
-            --special-red: #ff3e3e;
+            --bg-dark: #0f0c29;
+            --neon-blue: #00f2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            background-color: var(--bg-dark);
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
             color: white;
-            font-family: "Microsoft JhengHei", sans-serif;
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
         h1 {
             color: var(--primary-gold);
-            text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            font-size: 1.6rem;
+            margin: 15px 0;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+            letter-spacing: 3px;
         }
 
         .controls {
-            margin-bottom: 30px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px 25px;
-            border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
         }
 
-        select, button {
-            font-size: 1.1rem;
-            padding: 8px 15px;
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            color: var(--neon-blue);
+        }
+
+        input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--neon-blue);
+            font-size: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            text-align: center;
+            width: 100%;
         }
 
         button {
-            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            width: 100%;
+            background: linear-gradient(135deg, #00f2ff, #0061ff);
             color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 1.1rem;
             font-weight: bold;
-            transition: 0.2s;
-            margin-left: 10px;
+            margin-top: 15px;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+            cursor: pointer;
         }
 
-        button:hover:not(:disabled) { transform: scale(1.05); }
-        button:disabled { background: #666; }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-        /* 主開球區 */
         #ball-container {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            max-width: 900px;
-            gap: 15px;
-            min-height: 250px;
-            margin-bottom: 40px;
+            gap: 8px;
+            width: 100%;
+            max-width: 100%;
+            padding: 10px 0;
         }
 
-        .ball {
-            width: 65px;
-            height: 65px;
-            border-radius: 50%;
-            color: #333;
-            font-weight: 900;
-            font-size: 1.6rem;
+        .box {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
-            animation: dropBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+            animation: cubeIn 0.4s ease-out forwards;
         }
 
-        /* 特別號專屬樣式 (第20顆) */
-        .ball.special {
-            background: radial-gradient(circle at 30% 30%, #fff, #ffd700 40%, #ff8c00 70%, #b8860b) !important;
-            border: 3px solid #fff;
-            box-shadow: 0 0 20px #ffd700, inset 0 0 10px white;
-            color: #000;
-            transform: scale(1.15);
-            z-index: 10;
-            animation: specialDrop 0.8s ease-out forwards, glow 1.5s infinite alternate;
+        @keyframes cubeIn {
+            0% { transform: translateY(-30px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
         }
 
-        @keyframes dropBounce {
-            0% { transform: translateY(-200px) scale(0.5); opacity: 0; }
-            100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-
-        @keyframes specialDrop {
-            0% { transform: translateY(-300px) scale(2); opacity: 0; }
-            100% { transform: translateY(0) scale(1.15); opacity: 1; }
-        }
-
-        @keyframes glow {
-            from { box-shadow: 0 0 10px #ffd700; }
-            to { box-shadow: 0 0 25px #ffd700, 0 0 40px #ff4b2b; }
-        }
-
-        /* 排序結果區 */
         .result-section {
             width: 100%;
-            max-width: 850px;
-            border-top: 2px solid rgba(255, 215, 0, 0.3);
-            padding-top: 20px;
-            text-align: center;
+            border-top: 1px dashed var(--primary-gold);
+            padding-top: 15px;
             display: none;
         }
 
-        .result-title {
-            color: #00d2ff;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            letter-spacing: 2px;
-        }
+        .result-title { text-align: center; color: var(--primary-gold); font-size: 0.9rem; margin-bottom: 10px; }
 
         #sorted-container {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 10px;
+            gap: 6px;
         }
 
-        .small-ball {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #eee;
-            color: #111;
+        .small-box {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            background: #fff;
+            color: #000;
             font-weight: bold;
+            font-size: 0.8rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid #999;
         }
 
-        /* 排序區的特別號標記 */
-        .small-ball.is-special {
-            background: #ff4b2b;
-            color: white;
-            border: 2px solid #ffd700;
-            box-shadow: 0 0 8px #ff4b2b;
-            position: relative;
-        }
-
-        .small-ball.is-special::after {
-            content: "特別";
-            position: absolute;
-            top: -18px;
-            font-size: 10px;
-            color: #ffd700;
-            white-space: nowrap;
-        }
-
-        /* 普通球配色 */
-        .c1 { background: radial-gradient(circle at 30% 30%, #fff, #ff5252, #b71c1c); color: white; }
-        .c2 { background: radial-gradient(circle at 30% 30%, #fff, #448aff, #0d47a1); color: white; }
-        .c3 { background: radial-gradient(circle at 30% 30%, #fff, #66bb6a, #1b5e20); color: white; }
-        .c4 { background: radial-gradient(circle at 30% 30%, #fff, #ffa726, #e65100); color: white; }
-        .c5 { background: radial-gradient(circle at 30% 30%, #fff, #fdd835, #f57f17); color: #333; }
+        /* 霓虹邊框顏色 */
+        .c1 { border-color: #ff5252; color: #ff5252; box-shadow: 0 0 8px rgba(255, 82, 82, 0.3); }
+        .c2 { border-color: #448aff; color: #448aff; box-shadow: 0 0 8px rgba(68, 138, 255, 0.3); }
+        .c3 { border-color: #66bb6a; color: #66bb6a; box-shadow: 0 0 8px rgba(102, 187, 106, 0.3); }
+        .c4 { border-color: #ffa726; color: #ffa726; box-shadow: 0 0 8px rgba(255, 167, 38, 0.3); }
+        .c5 { border-color: #e040fb; color: #e040fb; box-shadow: 0 0 8px rgba(224, 64, 251, 0.3); }
     </style>
 </head>
 <body>
@@ -174,85 +167,87 @@
     <h1>抽獎機</h1>
 
     <div class="controls">
-        <label>開球數量：</label>
-        <select id="ballCount"></select>
-        <button id="startBtn" onclick="startDraw()">開始開獎</button>
+        <div class="settings-grid">
+            <div class="input-group">
+                <label>號碼總數</label>
+                <input type="number" id="maxPool" value="80" min="1">
+            </div>
+            <div class="input-group">
+                <label>抽出數量</label>
+                <input type="number" id="drawCount" value="20" min="1">
+            </div>
+        </div>
+        <button id="startBtn" onclick="startDraw()">啟動系統</button>
     </div>
 
     <div id="ball-container"></div>
 
     <div id="result-section" class="result-section">
-        <div class="result-title">━━━ 號碼排序 (由小到大) ━━━</div>
+        <div class="result-title">━━ 最終結果排列 ━━</div>
         <div id="sorted-container"></div>
     </div>
 
     <script>
-        const select = document.getElementById('ballCount');
+        const maxPoolInput = document.getElementById('maxPool');
+        const drawCountInput = document.getElementById('drawCount');
         const container = document.getElementById('ball-container');
         const sortedContainer = document.getElementById('sorted-container');
         const resultSection = document.getElementById('result-section');
         const btn = document.getElementById('startBtn');
 
-        for (let i = 1; i <= 20; i++) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = i + ' 球';
-            if (i === 20) opt.selected = true;
-            select.appendChild(opt);
-        }
-
         async function startDraw() {
+            const maxPool = parseInt(maxPoolInput.value);
+            const drawCount = parseInt(drawCountInput.value);
+
+            if (isNaN(maxPool) || isNaN(drawCount) || drawCount > maxPool || drawCount < 1) {
+                alert("請檢查輸入數值是否正確（抽出數量不可大於總數）");
+                return;
+            }
+
+            // 初始化介面
             container.innerHTML = '';
             sortedContainer.innerHTML = '';
             resultSection.style.display = 'none';
             btn.disabled = true;
 
-            const count = parseInt(select.value);
-            let pool = Array.from({length: 80}, (_, i) => i + 1);
+            // 準備號碼池
+            let pool = Array.from({length: maxPool}, (_, i) => i + 1);
             let results = [];
 
-            for (let i = 0; i < count; i++) {
+            // 隨機抽籤
+            for (let i = 0; i < drawCount; i++) {
                 const randomIndex = Math.floor(Math.random() * pool.length);
                 results.push(pool.splice(randomIndex, 1)[0]);
             }
 
-            // 最後一顆號碼
-            const specialNum = (count === 20) ? results[19] : null;
-
-            // 開球動畫
+            // 顯示落下動畫
             for (let i = 0; i < results.length; i++) {
-                const ball = document.createElement('div');
-                const isThisSpecial = (count === 20 && i === 19);
-                
-                if (isThisSpecial) {
-                    ball.className = 'ball special';
-                    // 最後一顆球稍微慢一點掉下來增加緊張感
-                    await new Promise(r => setTimeout(r, 600));
-                } else {
-                    const colorClass = 'c' + (Math.floor(Math.random() * 5) + 1);
-                    ball.className = `ball ${colorClass}`;
-                }
+                const box = document.createElement('div');
+                const colorClass = 'c' + (Math.floor(Math.random() * 5) + 1);
+                box.className = `box ${colorClass}`;
+                box.innerHTML = results[i];
 
-                ball.innerHTML = results[i];
-                container.appendChild(ball);
-                await new Promise(r => setTimeout(r, 350));
+                container.appendChild(box);
+                
+                // 每次增加內容時檢查捲動
+                if (i % 3 === 0) {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }
+                
+                await new Promise(r => setTimeout(r, 120));
             }
 
-            // 排序並顯示
-            await new Promise(r => setTimeout(r, 800));
+            // 顯示最終排序
+            await new Promise(r => setTimeout(r, 500));
             const sortedResults = [...results].sort((a, b) => a - b);
             resultSection.style.display = 'block';
 
             for (let num of sortedResults) {
-                const sBall = document.createElement('div');
-                sBall.className = 'small-ball';
-                // 如果這個數字是剛才的特別號，加上標記
-                if (num === specialNum) {
-                    sBall.classList.add('is-special');
-                }
-                sBall.innerHTML = num;
-                sortedContainer.appendChild(sBall);
-                await new Promise(r => setTimeout(r, 60));
+                const sBox = document.createElement('div');
+                sBox.className = 'small-box';
+                sBox.innerHTML = num;
+                sortedContainer.appendChild(sBox);
+                await new Promise(r => setTimeout(r, 30));
             }
 
             btn.disabled = false;
