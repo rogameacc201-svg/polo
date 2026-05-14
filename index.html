@@ -1,84 +1,262 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Bingo Bingo 快速看板</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BingoBingo 模擬開球 - 特別號版</title>
     <style>
-        body { font-family: sans-serif; background: #111827; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .box { background: #1f2937; border-radius: 15px; padding: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        h2 { color: #fbbf24; margin-bottom: 5px; }
-        .time { color: #9ca3af; font-size: 12px; margin-bottom: 20px; }
-        .balls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-        .ball { width: 45px; height: 45px; line-height: 45px; background: #ef4444; border-radius: 50%; font-weight: bold; font-size: 18px; box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3); }
-        .ball.blue { background: #3b82f6; }
-        .msg { margin-top: 15px; color: #60a5fa; font-size: 14px; min-height: 20px; }
-        button { margin-top: 15px; padding: 8px 20px; border-radius: 5px; border: none; cursor: pointer; background: #374151; color: white; }
+        :root {
+            --primary-gold: #ffd700;
+            --bg-dark: #1a1a2e;
+            --special-red: #ff3e3e;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: "Microsoft JhengHei", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: var(--primary-gold);
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+        }
+
+        .controls {
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        select, button {
+            font-size: 1.1rem;
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            color: white;
+            font-weight: bold;
+            transition: 0.2s;
+            margin-left: 10px;
+        }
+
+        button:hover:not(:disabled) { transform: scale(1.05); }
+        button:disabled { background: #666; }
+
+        /* 主開球區 */
+        #ball-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 900px;
+            gap: 15px;
+            min-height: 250px;
+            margin-bottom: 40px;
+        }
+
+        .ball {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            color: #333;
+            font-weight: 900;
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+            animation: dropBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 特別號專屬樣式 (第20顆) */
+        .ball.special {
+            background: radial-gradient(circle at 30% 30%, #fff, #ffd700 40%, #ff8c00 70%, #b8860b) !important;
+            border: 3px solid #fff;
+            box-shadow: 0 0 20px #ffd700, inset 0 0 10px white;
+            color: #000;
+            transform: scale(1.15);
+            z-index: 10;
+            animation: specialDrop 0.8s ease-out forwards, glow 1.5s infinite alternate;
+        }
+
+        @keyframes dropBounce {
+            0% { transform: translateY(-200px) scale(0.5); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes specialDrop {
+            0% { transform: translateY(-300px) scale(2); opacity: 0; }
+            100% { transform: translateY(0) scale(1.15); opacity: 1; }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 10px #ffd700; }
+            to { box-shadow: 0 0 25px #ffd700, 0 0 40px #ff4b2b; }
+        }
+
+        /* 排序結果區 */
+        .result-section {
+            width: 100%;
+            max-width: 850px;
+            border-top: 2px solid rgba(255, 215, 0, 0.3);
+            padding-top: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .result-title {
+            color: #00d2ff;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        #sorted-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .small-ball {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #eee;
+            color: #111;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #999;
+        }
+
+        /* 排序區的特別號標記 */
+        .small-ball.is-special {
+            background: #ff4b2b;
+            color: white;
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 8px #ff4b2b;
+            position: relative;
+        }
+
+        .small-ball.is-special::after {
+            content: "特別";
+            position: absolute;
+            top: -18px;
+            font-size: 10px;
+            color: #ffd700;
+            white-space: nowrap;
+        }
+
+        /* 普通球配色 */
+        .c1 { background: radial-gradient(circle at 30% 30%, #fff, #ff5252, #b71c1c); color: white; }
+        .c2 { background: radial-gradient(circle at 30% 30%, #fff, #448aff, #0d47a1); color: white; }
+        .c3 { background: radial-gradient(circle at 30% 30%, #fff, #66bb6a, #1b5e20); color: white; }
+        .c4 { background: radial-gradient(circle at 30% 30%, #fff, #ffa726, #e65100); color: white; }
+        .c5 { background: radial-gradient(circle at 30% 30%, #fff, #fdd835, #f57f17); color: #333; }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>BINGO BINGO 號碼</h2>
-    <div id="time" class="time">連線中...</div>
-    <div id="balls" class="balls"></div>
-    <div id="msg" class="msg">正在取得最新獎號...</div>
-    <button onclick="update()">點擊更新</button>
-</div>
+    <h1>BINGO BINGO 開獎模擬器</h1>
 
-<script>
-    async function update() {
-        const msg = document.getElementById('msg');
-        const balls = document.getElementById('balls');
-        const time = document.getElementById('time');
-        
-        msg.innerText = "讀取中...";
-        
-        // 使用一個較少被封鎖的公共 API 來源，抓取開獎彙整網
-        // 這裡抓取一個結構極簡的備用來源
-        const proxy = "https://api.allorigins.win/get?url=";
-        const target = encodeURIComponent("https://www.lotto-8.com/list_bingobingo.asp");
+    <div class="controls">
+        <label>開球數量：</label>
+        <select id="ballCount"></select>
+        <button id="startBtn" onclick="startDraw()">開始開獎</button>
+    </div>
 
-        try {
-            const res = await fetch(proxy + target);
-            const data = await res.json();
-            const html = data.contents;
-            
-            // 抓取號碼 (ball_red 標籤內的兩位數字)
-            const regex = /ball_red">(\d{2})<\/td>/g;
-            let match;
-            let nums = [];
-            
-            while ((match = regex.exec(html)) !== null) {
-                nums.push(match[1]);
-                if (nums.length >= 20) break;
-            }
+    <div id="ball-container"></div>
 
-            // 抓取超級獎號
-            const superMatch = /ball_blue">(\d{2})<\/td>/.exec(html);
-            if (superMatch) nums.push(superMatch[1]);
+    <div id="result-section" class="result-section">
+        <div class="result-title">━━━ 號碼排序 (由小到大) ━━━</div>
+        <div id="sorted-container"></div>
+    </div>
 
-            if (nums.length > 0) {
-                balls.innerHTML = '';
-                nums.forEach((n, i) => {
-                    const div = document.createElement('div');
-                    div.className = i === 20 ? 'ball blue' : 'ball';
-                    div.innerText = n;
-                    balls.appendChild(div);
-                });
-                msg.innerText = "更新成功！";
-                time.innerText = "資料來源時間：" + new Date().toLocaleTimeString();
-            } else {
-                msg.innerText = "目前網站維護中，請稍後重試。";
-            }
-        } catch (e) {
-            msg.innerText = "連線失敗，請檢查網路。";
+    <script>
+        const select = document.getElementById('ballCount');
+        const container = document.getElementById('ball-container');
+        const sortedContainer = document.getElementById('sorted-container');
+        const resultSection = document.getElementById('result-section');
+        const btn = document.getElementById('startBtn');
+
+        for (let i = 1; i <= 20; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = i + ' 球';
+            if (i === 20) opt.selected = true;
+            select.appendChild(opt);
         }
-    }
 
-    // 初始化與每分鐘自動更新
-    update();
-    setInterval(update, 60000);
-</script>
+        async function startDraw() {
+            container.innerHTML = '';
+            sortedContainer.innerHTML = '';
+            resultSection.style.display = 'none';
+            btn.disabled = true;
 
+            const count = parseInt(select.value);
+            let pool = Array.from({length: 80}, (_, i) => i + 1);
+            let results = [];
+
+            for (let i = 0; i < count; i++) {
+                const randomIndex = Math.floor(Math.random() * pool.length);
+                results.push(pool.splice(randomIndex, 1)[0]);
+            }
+
+            // 最後一顆號碼
+            const specialNum = (count === 20) ? results[19] : null;
+
+            // 開球動畫
+            for (let i = 0; i < results.length; i++) {
+                const ball = document.createElement('div');
+                const isThisSpecial = (count === 20 && i === 19);
+                
+                if (isThisSpecial) {
+                    ball.className = 'ball special';
+                    // 最後一顆球稍微慢一點掉下來增加緊張感
+                    await new Promise(r => setTimeout(r, 600));
+                } else {
+                    const colorClass = 'c' + (Math.floor(Math.random() * 5) + 1);
+                    ball.className = `ball ${colorClass}`;
+                }
+
+                ball.innerHTML = results[i];
+                container.appendChild(ball);
+                await new Promise(r => setTimeout(r, 350));
+            }
+
+            // 排序並顯示
+            await new Promise(r => setTimeout(r, 800));
+            const sortedResults = [...results].sort((a, b) => a - b);
+            resultSection.style.display = 'block';
+
+            for (let num of sortedResults) {
+                const sBall = document.createElement('div');
+                sBall.className = 'small-ball';
+                // 如果這個數字是剛才的特別號，加上標記
+                if (num === specialNum) {
+                    sBall.classList.add('is-special');
+                }
+                sBall.innerHTML = num;
+                sortedContainer.appendChild(sBall);
+                await new Promise(r => setTimeout(r, 60));
+            }
+
+            btn.disabled = false;
+        }
+    </script>
 </body>
 </html>
